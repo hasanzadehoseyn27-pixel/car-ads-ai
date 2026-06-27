@@ -203,6 +203,30 @@
     align-items: center;
     margin-bottom: 6px;
   }
+  .price-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .price-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .price-badge.min {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
+  .price-badge.max {
+    background: #7c2d12;
+    color: #fdba74;
+  }
+  .price-badge.equal {
+    background: #1e3a8a;
+    color: #93c5fd;
+  }
   .ad-link {
     color: #5eead4;
     font-size: 13px;
@@ -431,10 +455,30 @@
         return;
       }
 
+      // کمترین/بیشترین قیمت همیشه از کل آگهی‌های این مدل محاسبه می‌شود
+      // (نه فقط از زیرمجموعه‌ای که الان با سرچ فیلتر شده)، تا برچسب‌ها
+      // با تغییر متن سرچ عوض/گم نشوند.
+      const allPrices = currentModalAds
+        .map((a) => a.price_amount)
+        .filter((p) => p !== null && p !== undefined);
+      const minPrice = allPrices.length ? Math.min(...allPrices) : null;
+      const maxPrice = allPrices.length ? Math.max(...allPrices) : null;
+
       ads.forEach((ad) => {
         const priceText = ad.price_amount
           ? formatToman(ad.price_amount)
           : (ad.price_label ? ad.price_label : '<span class="no-price">بدون قیمت مشخص</span>');
+
+        let badge = "";
+        if (ad.price_amount !== null && ad.price_amount !== undefined) {
+          if (minPrice === maxPrice) {
+            badge = '<span class="price-badge equal">⭐ تنها قیمت موجود</span>';
+          } else if (ad.price_amount === minPrice) {
+            badge = '<span class="price-badge min">🔻 کمترین قیمت</span>';
+          } else if (ad.price_amount === maxPrice) {
+            badge = '<span class="price-badge max">🔺 بیشترین قیمت</span>';
+          }
+        }
 
         const detailsParts = [];
         if (ad.color) detailsParts.push("رنگ: " + ad.color);
@@ -447,7 +491,10 @@
         card.className = "ad-card";
         card.innerHTML = `
           <div class="ad-row">
-            <strong>${priceText}</strong>
+            <div class="price-group">
+              <strong>${priceText}</strong>
+              ${badge}
+            </div>
             <a href="${ad.telegram_link}" target="_blank" rel="noopener" class="ad-link">مشاهده در تلگرام ↗</a>
           </div>
           ${detailsParts.length ? `<div class="ad-details">${detailsParts.join(" — ")}</div>` : ""}
