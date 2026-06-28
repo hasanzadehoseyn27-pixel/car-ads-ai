@@ -24,17 +24,29 @@ load_dotenv()
 API_ID = int(os.getenv("TELEGRAM_API_ID"))
 API_HASH = os.getenv("TELEGRAM_API_HASH")
 
+# پراکسی فقط وقتی لازمه که از ایران/پشت یه فیلترشکن وصل می‌شیم (مثلاً کامپیوتر
+# خونه). روی سرور آلمان (دسترسی مستقیم) باید USE_PROXY ست نشه یا false باشه.
+USE_PROXY = os.getenv("USE_PROXY", "false").strip().lower() == "true"
+PROXY_HOST = os.getenv("PROXY_HOST", "127.0.0.1")
+PROXY_PORT = int(os.getenv("PROXY_PORT", "10808"))
+PROXY_CONFIG = (python_socks.ProxyType.SOCKS5, PROXY_HOST, PROXY_PORT) if USE_PROXY else None
+
 # اگه اتصال بیشتر از این طول بکشد، یعنی تونل پراکسی گیر کرده —
 # به‌جای آویزون‌ماندن بی‌نهایت، با کد خطا خارج می‌شویم تا watchdog از صفر اجراش کند.
 CONNECT_TIMEOUT_SECONDS = 30
 JOIN_TIMEOUT_SECONDS = 20
 CHANNEL_SYNC_INTERVAL_SECONDS = 15
+# اجرای دستی با --login یعنی لاگین تعاملی (شماره/کد/رمز دومرحله‌ای) در پیش
+# است؛ Telethon همون لحظه‌ی ساخت TelegramClient فایل session رو خالی می‌سازه
+# (حتی قبل از authorize شدن)، پس نمی‌شه با چک‌کردن وجود فایل تشخیص داد —
+# باید صریح با همین پرچم مشخص کنیم.
+INTERACTIVE_LOGIN = "--login" in sys.argv
 
 client = TelegramClient(
     "car_ads_session",
     API_ID,
     API_HASH,
-    proxy=(python_socks.ProxyType.SOCKS5, "127.0.0.1", 10808),
+    proxy=PROXY_CONFIG,
     connection_retries=15,
     retry_delay=3,
     timeout=30,
@@ -133,12 +145,28 @@ async def channel_sync_loop():
 
 async def main():
     init_db()
+    if USE_PROXY:
+        print(f"🌐 اتصال از طریق پراکسی SOCKS5 ({PROXY_HOST}:{PROXY_PORT})")
+    else:
+        print("🌐 اتصال مستقیم (بدون پراکسی)")
     print("🔌 در حال اتصال به تلگرام ...")
-    try:
-        await asyncio.wait_for(client.start(), timeout=CONNECT_TIMEOUT_SECONDS)
-    except asyncio.TimeoutError:
-        print(f"❌ اتصال بیش از {CONNECT_TIMEOUT_SECONDS} ثانیه طول کشید — تونل پراکسی احتمالاً گیر کرده.")
-        sys.exit(1)
+
+    if INTERACTIVE_LOGIN:
+        # لاگین تعاملی — شماره موبایل، کد تایید، و (اگه فعال داری) رمز
+        # دومرحله‌ای می‌خواهد. محدودیت زمانی نمی‌گذاریم تا وقت کافی برای
+        # تایپ داشته باشی.
+        print("ℹ️ حالت لاگین تعاملی (--login) — بدون محدودیت زمانی.")
+        await client.start()
+    else:
+        # اتصال خودکار (از طریق watchdog) با session از قبل authorize‌شده —
+        # نباید نیاز به ورودی انسانی داشته باشد. اگه طول کشید، یعنی تونل
+        # پراکسی گیر کرده — خارج می‌شویم تا watchdog دوباره اجرا کند.
+        try:
+            await asyncio.wait_for(client.start(), timeout=CONNECT_TIMEOUT_SECONDS)
+        except asyncio.TimeoutError:
+            print(f"❌ اتصال بیش از {CONNECT_TIMEOUT_SECONDS} ثانیه طول کشید — تونل پراکسی احتمالاً گیر کرده.")
+            sys.exit(1)
+
     print("✅ وصل شد.")
 
     asyncio.create_task(channel_sync_loop())

@@ -20,6 +20,7 @@ api.py — یک API ساده و داخلی (فقط روی لوکال‌هاست)
     http://127.0.0.1:8001/analytics
     http://127.0.0.1:8001/analytics?hours=48
 """
+import os
 import re
 
 import requests
@@ -31,9 +32,12 @@ from db import list_channels, add_channel, remove_channel
 
 app = FastAPI(title="car-ads-ai analytics API")
 
-# همون پراکسی که Telethon هم استفاده می‌کند — برای دسترسی به t.me از همین کامپیوتر.
-# روی سرور آلمان (که دسترسی مستقیم دارد) این می‌تواند None باشد.
-PROXY_URL = "socks5h://127.0.0.1:10808"
+# همون منطق پراکسی listener.py — فقط وقتی از پشت فیلترشکن وصل می‌شیم (کامپیوتر
+# خونه/شرکت) لازم است. روی سرور آلمان باید USE_PROXY ست نشه یا false باشه.
+USE_PROXY = os.getenv("USE_PROXY", "false").strip().lower() == "true"
+PROXY_HOST = os.getenv("PROXY_HOST", "127.0.0.1")
+PROXY_PORT = os.getenv("PROXY_PORT", "10808")
+PROXY_URL = f"socks5h://{PROXY_HOST}:{PROXY_PORT}" if USE_PROXY else None
 
 
 class ChannelIn(BaseModel):
