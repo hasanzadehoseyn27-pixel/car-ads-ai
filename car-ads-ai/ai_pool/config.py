@@ -1,10 +1,12 @@
-"""
+﻿"""
 مخزن providerهای هوش مصنوعی.
-دو حالت داریم که با متغیر AI_BACKEND توی .env انتخاب می‌شوند:
-  - AI_BACKEND=freellmapi  -> فقط از سرور freellmapi خودت استفاده می‌کند (برای خانه)
-  - AI_BACKEND=direct      -> مستقیم از OpenModel/Groq/OpenRouter استفاده می‌کند (برای شرکت،
-                               جایی که نصب freellmapi به مشکل Visual Studio خورد)
-اگر AI_BACKEND ست نشود، پیش‌فرض روی "direct" است.
+فعلاً فقط یک provider داریم: سرور freellmapi خودمان، که خودش پشت صحنه
+بین ۱۶ provider رایگان (Groq, OpenRouter, Gemini, Cerebras, ...) سوییچ می‌کند.
+
+آدرس freellmapi با FREELLMAPI_BASE_URL در .env قابل تغییر است — پیش‌فرض همون
+نسخه‌ی روی سرور آلمان (llm.k1khodro.com) است؛ اگه خواستی موقتاً به نسخه‌ی
+لوکال (مثلاً موقع تست روی همین کامپیوتر) برگردی، توی .env این رو بگذار:
+    FREELLMAPI_BASE_URL=http://localhost:3001/v1
 """
 import os
 from dataclasses import dataclass
@@ -23,42 +25,15 @@ class ProviderConfig:
     timeout: int = 20
 
 
-AI_BACKEND = os.getenv("AI_BACKEND", "direct").strip().lower()
+FREELLMAPI_BASE_URL = os.getenv("FREELLMAPI_BASE_URL", "https://llm.k1khodro.com/v1")
 
-
-FREELLMAPI_PROVIDERS = [
+PROVIDERS = [
     ProviderConfig(
         name="freellmapi",
-        base_url="http://localhost:3001/v1",
+        base_url=FREELLMAPI_BASE_URL,
         api_key_env="FREELLMAPI_API_KEY",
         model="auto",
         protocol="openai_chat",
         timeout=60,
     ),
 ]
-
-DIRECT_PROVIDERS = [
-    ProviderConfig(
-        name="openmodel_deepseek",
-        base_url="https://api.openmodel.ai/v1",
-        api_key_env="OPENMODEL_API_KEY",
-        model="deepseek-v4-flash",
-        protocol="anthropic_messages",
-    ),
-    ProviderConfig(
-        name="groq",
-        base_url="https://api.groq.com/openai/v1",
-        api_key_env="GROQ_API_KEY",
-        model="llama-3.3-70b-versatile",
-        protocol="openai_chat",
-    ),
-    ProviderConfig(
-        name="openrouter_free",
-        base_url="https://openrouter.ai/api/v1",
-        api_key_env="OPENROUTER_API_KEY",
-        model="openrouter/free",
-        protocol="openai_chat",
-    ),
-]
-
-PROVIDERS = FREELLMAPI_PROVIDERS if AI_BACKEND == "freellmapi" else DIRECT_PROVIDERS
