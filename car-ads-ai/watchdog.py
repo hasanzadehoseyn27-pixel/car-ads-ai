@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 watchdog.py — اجرا و مانیتور listener.py
 
@@ -14,8 +14,10 @@ watchdog.py — اجرا و مانیتور listener.py
 در این حالت watchdog هم یه هشدار صریح می‌ده و هم فاصله‌ی بین تلاش‌ها رو
 به‌تدریج بیشتر می‌کنه (backoff) تا روی یه پراکسی خراب مدام چرخ نزنه.
 
-فرض شده که الان listener.py رو با دستور «py listener.py» از همین پوشه اجرا
-می‌کنی. اگه فرق داره، فقط خط SCRIPT_TO_RUN رو پایین‌تر عوض کن.
+listener.py با همون پایتونی اجرا می‌شه که خودِ watchdog.py باهاش در حال اجراست
+(sys.executable) — این یعنی اگه watchdog.py از یه venv خاص (مثلاً با
+--interpreter توی PM2) اجرا شده باشه، listener.py هم دقیقاً همون venv رو
+می‌گیره، نه پایتون سراسری سیستم.
 
 اجرا:
     py watchdog.py
@@ -26,12 +28,13 @@ watchdog.py — اجرا و مانیتور listener.py
 
 import os
 import subprocess
+import sys
 import time
 from collections import deque
 from datetime import datetime
 
 # ----------------- تنظیمات -----------------
-SCRIPT_TO_RUN = ["py", "listener.py"]
+SCRIPT_TO_RUN = [sys.executable, "listener.py"]
 ERROR_PATTERN = "Security error while unpacking a received message"
 ERROR_THRESHOLD = 5            # چند بار همین خطا پشت‌سرهم دیده شه تا ریستارت کنیم
 ERROR_WINDOW_SECONDS = 15      # توی چه بازه‌ی زمانی (ثانیه)
