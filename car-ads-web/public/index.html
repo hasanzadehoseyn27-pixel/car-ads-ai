@@ -2,141 +2,232 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>تحلیل قیمت آگهی‌های خودرو</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
+  :root {
+    --bg: #0b1320;
+    --card: #141f33;
+    --card-border: #263248;
+    --header-bg: #0f3d3a;
+    --accent: #2dd4bf;
+    --accent-bright: #5eead4;
+    --text: #e7ecf3;
+    --text-dim: #93a1b8;
+    --text-faint: #5c6b85;
+    --danger: #fca5a5;
+    --radius-lg: 14px;
+    --radius-md: 10px;
+    --radius-sm: 7px;
+  }
+
+  * { box-sizing: border-box; }
+
   body {
-    background: #0f172a;
-    color: #e2e8f0;
-    font-family: Tahoma, Arial, sans-serif;
-    padding: 24px;
+    background: var(--bg);
+    background-image: radial-gradient(circle at 15% 0%, rgba(45, 212, 191, 0.07), transparent 45%);
+    color: var(--text);
+    font-family: "Vazirmatn", Tahoma, sans-serif;
+    padding: 28px 32px 60px;
+    margin: 0;
+  }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 22px;
   }
   h1 {
-    color: #2dd4bf;
-    font-size: 20px;
+    color: var(--accent-bright);
+    font-size: 21px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.2px;
   }
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.6);
+    animation: pulse 2.2s infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.55); }
+    70%  { box-shadow: 0 0 0 7px rgba(45, 212, 191, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0); }
+  }
+
   h3 {
-    color: #5eead4;
-    font-size: 15px;
-    margin: 0 0 10px;
+    color: var(--accent-bright);
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 12px;
   }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  }
+
   .toolbar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 16px;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .result-count {
+    font-size: 13px;
+    color: var(--text-faint);
   }
 
   /* پنل افزودن کانال */
   .channels-panel {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 14px 16px;
-    margin-bottom: 20px;
+    padding: 16px 18px;
+    margin-bottom: 22px;
   }
   .channel-add-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
   }
-  .channel-add-row input {
-    max-width: 240px;
-  }
+  .channel-add-row input { max-width: 240px; }
   .channel-preview {
     font-size: 13px;
-    color: #64748b;
+    color: var(--text-faint);
     min-width: 140px;
+    transition: color 0.15s;
   }
-  .channel-preview.loading { color: #94a3b8; }
+  .channel-preview.loading { color: var(--text-dim); }
   .channel-preview.found { color: #6ee7b7; }
-  .channel-preview.not-found { color: #fca5a5; }
+  .channel-preview.not-found { color: var(--danger); }
 
   .channel-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 8px 14px;
+    background: var(--bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
     margin-bottom: 8px;
   }
-  .channel-row .channel-name {
-    font-size: 14px;
-  }
+  .channel-row .channel-name { font-size: 14px; }
   .channel-status {
     font-size: 11px;
-    padding: 2px 8px;
+    padding: 2px 9px;
     border-radius: 999px;
+    font-weight: 500;
   }
-  .channel-status.active {
-    background: #064e3b;
-    color: #6ee7b7;
-  }
-  .channel-status.inactive {
-    background: #3f1d1d;
-    color: #fca5a5;
-  }
+  .channel-status.active { background: #064e3b; color: #6ee7b7; }
+  .channel-status.inactive { background: #3f1d1d; color: var(--danger); }
 
+  /* جدول */
   table {
     width: 100%;
     border-collapse: collapse;
-    background: #1e293b;
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     overflow: hidden;
   }
   th, td {
-    padding: 10px 14px;
+    padding: 12px 16px;
     text-align: right;
-    border-bottom: 1px solid #334155;
+    border-bottom: 1px solid var(--card-border);
+    font-size: 13.5px;
   }
   th {
-    background: #134e4a;
-    color: #5eead4;
-    font-size: 14px;
+    background: var(--header-bg);
+    color: var(--accent-bright);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
   }
   th.row-num, td.row-num {
     text-align: center;
-    color: #64748b;
-    width: 40px;
+    color: var(--text-faint);
+    width: 36px;
   }
-  tbody tr {
-    cursor: pointer;
+  tbody tr { cursor: pointer; transition: background 0.12s; }
+  tbody tr:hover { background: #1b2a45; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.empty-cell {
+    text-align: center;
+    color: var(--text-faint);
+    padding: 32px 0;
+    cursor: default;
   }
-  tbody tr:hover {
-    background: #273449;
+  .no-price { color: var(--text-faint); }
+
+  /* صفحه‌بندی */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 14px;
+    padding: 0 4px;
   }
-  .no-price {
-    color: #64748b;
+  .pagination-info {
+    font-size: 12.5px;
+    color: var(--text-faint);
   }
-  input[type="text"] {
-    background: #0f172a;
-    color: #e2e8f0;
-    border: 1px solid #334155;
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-family: inherit;
+  .pagination-buttons {
+    display: flex;
+    gap: 8px;
   }
-  .toolbar input[type="text"] {
-    min-width: 260px;
+  .pagination-buttons button {
+    padding: 5px 14px;
+    font-size: 13px;
   }
-  button {
-    background: #134e4a;
-    color: #5eead4;
-    border: 1px solid #2dd4bf;
-    border-radius: 6px;
-    padding: 6px 12px;
-    font-family: inherit;
-    cursor: pointer;
+  .pagination-buttons button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
   }
 
-  /* مدال‌ها (مشترک بین مدال جزئیات مدل و مدال لیست کانال‌ها) */
+  input[type="text"] {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: 7px 12px;
+    font-family: inherit;
+    font-size: 13.5px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+  .toolbar input[type="text"] { min-width: 260px; }
+
+  button {
+    background: var(--header-bg);
+    color: var(--accent-bright);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 7px 14px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  button:hover:not(:disabled) { background: #115049; }
+  button:active:not(:disabled) { transform: scale(0.97); }
+
+  /* مدال‌ها */
   .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(5, 9, 16, 0.72);
+    backdrop-filter: blur(2px);
     display: none;
     align-items: center;
     justify-content: center;
@@ -144,64 +235,70 @@
     padding: 20px;
   }
   .modal-box {
-    background: #0f172a;
-    border: 1px solid #334155;
-    border-radius: 10px;
+    background: var(--bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
     width: 100%;
     max-width: 720px;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+    animation: modal-in 0.16s ease-out;
+  }
+  @keyframes modal-in {
+    from { opacity: 0; transform: scale(0.97) translateY(4px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
   }
   .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 18px;
-    border-bottom: 1px solid #334155;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--card-border);
   }
   .modal-header h2 {
     margin: 0;
-    color: #5eead4;
-    font-size: 17px;
+    color: var(--accent-bright);
+    font-size: 16.5px;
+    font-weight: 700;
   }
   .modal-header button {
     background: none;
     border: none;
-    color: #94a3b8;
-    font-size: 18px;
-    cursor: pointer;
-  }
-  .modal-search-area {
-    padding: 12px 18px;
-    border-bottom: 1px solid #334155;
-  }
-  .modal-search-area input {
-    width: 100%;
-  }
-  #modalMeta {
-    padding: 6px 18px;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 13px;
+    padding: 4px 8px;
+  }
+  .modal-header button:hover:not(:disabled) { background: none; color: var(--text); }
+  .modal-search-area {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--card-border);
+  }
+  .modal-search-area input { width: 100%; }
+  #modalMeta {
+    padding: 8px 20px;
+    color: var(--text-dim);
+    font-size: 12.5px;
   }
   #modalList, #channelsModalList {
     overflow-y: auto;
-    padding: 12px 18px;
+    padding: 14px 20px;
     flex: 1;
   }
   .ad-card {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 12px 14px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    padding: 13px 15px;
     margin-bottom: 10px;
   }
   .ad-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 6px;
+    margin-bottom: 7px;
   }
   .price-group {
     display: flex;
@@ -209,71 +306,48 @@
     gap: 8px;
     flex-wrap: wrap;
   }
+  .price-group strong { font-size: 14.5px; }
   .price-badge {
     font-size: 11px;
-    padding: 2px 8px;
+    padding: 2px 9px;
     border-radius: 999px;
     white-space: nowrap;
+    font-weight: 500;
   }
-  .price-badge.min {
-    background: #064e3b;
-    color: #6ee7b7;
-  }
-  .price-badge.max {
-    background: #7c2d12;
-    color: #fdba74;
-  }
-  .price-badge.equal {
-    background: #1e3a8a;
-    color: #93c5fd;
-  }
+  .price-badge.min { background: #064e3b; color: #6ee7b7; }
+  .price-badge.max { background: #7c2d12; color: #fdba74; }
+  .price-badge.equal { background: #1e3a8a; color: #93c5fd; }
   .ad-link {
-    color: #5eead4;
-    font-size: 13px;
+    color: var(--accent-bright);
+    font-size: 12.5px;
     text-decoration: none;
+    white-space: nowrap;
   }
-  .ad-link:hover {
-    text-decoration: underline;
-  }
-  .ad-details {
-    color: #94a3b8;
-    font-size: 13px;
-    margin-bottom: 4px;
-  }
-  .ad-phone {
-    font-size: 13px;
-    margin-bottom: 4px;
-  }
-  .ad-notes {
-    color: #cbd5e1;
-    font-size: 13px;
-    margin-bottom: 6px;
-  }
+  .ad-link:hover { text-decoration: underline; }
+  .ad-details { color: var(--text-dim); font-size: 13px; margin-bottom: 4px; }
+  .ad-phone { font-size: 13px; margin-bottom: 4px; }
+  .ad-notes { color: #cbd5e1; font-size: 13px; margin-bottom: 7px; }
   .ad-text {
-    background: #0f172a;
-    border-radius: 6px;
-    padding: 8px 10px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 9px 11px;
     font-size: 13px;
     color: #cbd5e1;
     white-space: pre-wrap;
-    margin-bottom: 6px;
+    margin-bottom: 7px;
+    line-height: 1.6;
   }
-  .ad-date {
-    color: #64748b;
-    font-size: 11px;
-    text-align: left;
-  }
-  .empty {
-    color: #64748b;
-    text-align: center;
-    padding: 30px 0;
-  }
+  .ad-date { color: var(--text-faint); font-size: 11px; text-align: left; }
+  .empty { color: var(--text-faint); text-align: center; padding: 34px 0; font-size: 13.5px; }
 </style>
 </head>
 <body>
-  <h1>📊 تحلیل قیمت آگهی‌های خودرو</h1>
+  <div class="page-header">
+    <h1>تحلیل قیمت آگهی‌های خودرو</h1>
+    <span class="live-dot" title="بروزرسانی خودکار هر ۱۰ ثانیه"></span>
+  </div>
 
-  <div class="channels-panel">
+  <div class="card channels-panel">
     <h3>مدیریت کانال‌ها</h3>
     <div class="channel-add-row">
       <input type="text" id="newChannelInput" placeholder="نام کاربری کانال (بدون @)" oninput="onChannelInputChange()" />
@@ -284,24 +358,29 @@
   </div>
 
   <div class="toolbar">
-    <input type="text" id="searchTable" placeholder="جستجوی مدل خودرو..." oninput="filterTable()" />
+    <input type="text" id="searchTable" placeholder="جستجوی مدل خودرو..." oninput="onSearchInput()" />
+    <span class="result-count" id="resultCount"></span>
   </div>
 
-  <table id="result">
-    <thead>
-      <tr>
-        <th class="row-num">ردیف</th>
-        <th>مدل خودرو</th>
-        <th>تعداد کل آگهی</th>
-        <th>آگهی با قیمت</th>
-        <th>حداقل قیمت</th>
-        <th>میانگین قیمت</th>
-        <th>حداکثر قیمت</th>
-        <th>آخرین آگهی</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <div class="card">
+    <table id="result">
+      <thead>
+        <tr>
+          <th class="row-num">ردیف</th>
+          <th>مدل خودرو</th>
+          <th>تعداد کل آگهی</th>
+          <th>آگهی با قیمت</th>
+          <th>حداقل قیمت</th>
+          <th>میانگین قیمت</th>
+          <th>حداکثر قیمت</th>
+          <th>آخرین آگهی</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="pagination" id="pagination"></div>
 
   <!-- مدال جزئیات هر مدل خودرو -->
   <div id="modalOverlay" class="modal-overlay" onclick="closeModalOnOverlay(event)">
@@ -335,6 +414,10 @@
   <script>
     const REFRESH_INTERVAL_MS = 10000; // هر چند ثانیه جدول خودکار بروز شود
     const CHANNEL_PREVIEW_DEBOUNCE_MS = 450;
+    const ROWS_PER_PAGE = 10;
+
+    let allAnalyticsData = [];
+    let currentPage = 1;
 
     let currentModalAds = [];
     let modalOpenCarName = null;
@@ -355,7 +438,7 @@
       }
     }
 
-    // ---------- جدول قیمت‌ها ----------
+    // ---------- جدول قیمت‌ها (با صفحه‌بندی) ----------
 
     async function load() {
       const tbody = document.querySelector("#result tbody");
@@ -365,22 +448,49 @@
         const json = await res.json();
 
         if (json.error) {
-          tbody.innerHTML = `<tr><td colspan="8">❌ ${json.error}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">❌ ${json.error}</td></tr>`;
           return;
         }
 
-        tbody.innerHTML = "";
-        json.data.forEach((item, index) => {
+        allAnalyticsData = json.data;
+        renderTable();
+
+        if (modalOpenCarName) {
+          refreshModal(modalOpenCarName, modalOpenTrim);
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">❌ خطا در دریافت اطلاعات: ${err.message}</td></tr>`;
+      }
+    }
+
+    function getFilteredData() {
+      const q = document.getElementById("searchTable").value.trim().toLowerCase();
+      if (!q) return allAnalyticsData;
+      return allAnalyticsData.filter((item) => item.display_name.toLowerCase().includes(q));
+    }
+
+    function renderTable() {
+      const tbody = document.querySelector("#result tbody");
+      const filtered = getFilteredData();
+      const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
+      currentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+      const startIdx = (currentPage - 1) * ROWS_PER_PAGE;
+      const pageItems = filtered.slice(startIdx, startIdx + ROWS_PER_PAGE);
+
+      tbody.innerHTML = "";
+
+      if (pageItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">نتیجه‌ای پیدا نشد</td></tr>`;
+      } else {
+        pageItems.forEach((item, i) => {
           const tr = document.createElement("tr");
-          tr.dataset.carName = item.car_name;
-          tr.dataset.trim = item.trim || "";
-          tr.dataset.displayName = item.display_name;
           tr.onclick = () => openModal(item.car_name, item.trim, item.display_name);
           tr.innerHTML = `
-            <td class="row-num">${index + 1}</td>
+            <td class="row-num">${(startIdx + i + 1).toLocaleString("fa-IR")}</td>
             <td>${item.display_name}</td>
-            <td>${item.total_ads}</td>
-            <td>${item.priced_ads}</td>
+            <td>${item.total_ads.toLocaleString("fa-IR")}</td>
+            <td>${item.priced_ads.toLocaleString("fa-IR")}</td>
             <td>${formatToman(item.min_price)}</td>
             <td>${formatToman(item.avg_price)}</td>
             <td>${formatToman(item.max_price)}</td>
@@ -388,23 +498,43 @@
           `;
           tbody.appendChild(tr);
         });
-
-        filterTable();
-
-        if (modalOpenCarName) {
-          refreshModal(modalOpenCarName, modalOpenTrim);
-        }
-      } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="8">❌ خطا در دریافت اطلاعات: ${err.message}</td></tr>`;
       }
+
+      document.getElementById("resultCount").textContent =
+        filtered.length > 0 ? `${filtered.length.toLocaleString("fa-IR")} نتیجه` : "";
+
+      renderPagination(filtered.length, totalPages);
     }
 
-    function filterTable() {
-      const q = document.getElementById("searchTable").value.trim().toLowerCase();
-      document.querySelectorAll("#result tbody tr").forEach((tr) => {
-        const displayName = (tr.dataset.displayName || "").toLowerCase();
-        tr.style.display = displayName.includes(q) ? "" : "none";
-      });
+    function renderPagination(totalCount, totalPages) {
+      const container = document.getElementById("pagination");
+
+      if (totalCount === 0) {
+        container.innerHTML = "";
+        return;
+      }
+
+      container.innerHTML = `
+        <span class="pagination-info">صفحه ${currentPage.toLocaleString("fa-IR")} از ${totalPages.toLocaleString("fa-IR")}</span>
+        <div class="pagination-buttons">
+          <button id="prevPageBtn" ${currentPage <= 1 ? "disabled" : ""}>قبلی</button>
+          <button id="nextPageBtn" ${currentPage >= totalPages ? "disabled" : ""}>بعدی</button>
+        </div>
+      `;
+
+      document.getElementById("prevPageBtn").onclick = () => {
+        currentPage--;
+        renderTable();
+      };
+      document.getElementById("nextPageBtn").onclick = () => {
+        currentPage++;
+        renderTable();
+      };
+    }
+
+    function onSearchInput() {
+      currentPage = 1;
+      renderTable();
     }
 
     // ---------- مدال جزئیات هر مدل ----------
@@ -441,7 +571,7 @@
           .map((ad) => ad.price_amount)
           .filter((p) => p !== null && p !== undefined);
 
-        let metaText = `${json.count} آگهی`;
+        let metaText = `${json.count.toLocaleString("fa-IR")} آگهی`;
         if (prices.length > 0) {
           const min = Math.min(...prices);
           const max = Math.max(...prices);
