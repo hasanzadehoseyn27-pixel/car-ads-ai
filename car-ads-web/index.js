@@ -117,6 +117,38 @@ fastify.delete("/api/car-ads-channels/:username", async (req, reply) => {
   }
 });
 
+fastify.get("/api/car-ads-settings", async (req, reply) => {
+  try {
+    const res = await fetch(`${ANALYTICS_SERVICE_URL}/settings`);
+    if (!res.ok) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai پاسخ درستی نداد" };
+    }
+    return await res.json();
+  } catch (err) {
+    reply.code(502);
+    return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+  }
+});
+
+fastify.post("/api/car-ads-settings", async (req, reply) => {
+  try {
+    const res = await fetch(`${ANALYTICS_SERVICE_URL}/settings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req.body),
+    });
+    if (!res.ok) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai پاسخ درستی نداد" };
+    }
+    return await res.json();
+  } catch (err) {
+    reply.code(502);
+    return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+  }
+});
+
 fastify.listen({ port: 3050, host: "0.0.0.0" }, (err) => {
   if (err) throw err;
   console.log("car-ads-web backend running on http://localhost:3050");

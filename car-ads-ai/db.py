@@ -4,6 +4,11 @@
 
 جدول channels: لیست کانال‌هایی که listener.py باید گوش بدهد — به‌جای لیست ثابت
 توی کد، از اینجا (داینامیک) خوانده می‌شود تا بشود از فرانت‌اند کانال اضافه/حذف کرد.
+
+جدول settings: تنظیمات کلید-مقدار عمومی که از فرانت‌اند (داشبورد) قابل تغییرند
+و توسط پروسه‌های پایتون (listener.py/llm_pool.py) خوانده می‌شوند — مثلاً فاصله‌ی
+حداقل بین تماس‌های AI. چون این تنظیمات از طریق دیتابیس مشترک منتقل می‌شوند،
+بین فرانت‌اند (Node) و بک‌اند (Python) هیچ ارتباط مستقیمی لازم نیست.
 """
 import sqlite3
 from pathlib import Path
@@ -44,6 +49,12 @@ def init_db():
             username TEXT NOT NULL UNIQUE,
             active INTEGER NOT NULL DEFAULT 1,
             added_at TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
         )
     """)
     conn.commit()
@@ -133,3 +144,31 @@ def list_channels(active_only: bool = False) -> list[dict]:
     finally:
         conn.close()
     return [dict(row) for row in rows]
+
+
+def get_setting(key: str, default: str | None = None) -> str | None:
+    """مقدار یک تنظیم را برمی‌گرداند؛ اگه ثبت نشده بود، default برگردانده می‌شود."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    finally:
+        conn.close()
+    return row["value"] if row else default
+
+
+def set_setting(key: str, value: str) -> None:
+    """یک تنظیم را ذخیره/بروز می‌کند."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute(
+            """
+            INSERT INTO settings (key, value)
+            VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (key, str(value)),
+        )
+        conn.commit()
+    finally:
+        conn.close()

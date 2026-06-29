@@ -41,6 +41,36 @@
     gap: 10px;
     margin-bottom: 22px;
   }
+  .icon-btn {
+    margin-inline-start: auto;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    border-radius: 999px;
+  }
+  select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: 7px 12px;
+    font-family: inherit;
+    font-size: 13.5px;
+    outline: none;
+    width: 100%;
+  }
+  select:focus { border-color: var(--accent); }
+  .settings-field label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .settings-body { padding: 18px 20px; }
   h1 {
     color: var(--accent-bright);
     font-size: 21px;
@@ -344,7 +374,8 @@
 <body>
   <div class="page-header">
     <h1>تحلیل قیمت آگهی‌های خودرو</h1>
-    <span class="live-dot" title="بروزرسانی خودکار هر ۱۰ ثانیه"></span>
+    <span class="live-dot" id="liveDot" title="بروزرسانی خودکار"></span>
+    <button class="icon-btn" onclick="openSettingsModal()" title="تنظیمات" aria-label="تنظیمات">⚙️</button>
   </div>
 
   <div class="card channels-panel">
@@ -411,10 +442,49 @@
     </div>
   </div>
 
+  <!-- مدال تنظیمات -->
+  <div id="settingsModalOverlay" class="modal-overlay" onclick="closeSettingsModalOnOverlay(event)">
+    <div class="modal-box" style="max-width: 420px;">
+      <div class="modal-header">
+        <h2>تنظیمات</h2>
+        <button onclick="closeSettingsModal()">✕ بستن</button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-field">
+          <label for="refreshIntervalSelect">فاصله‌ی هر درخواست به سرور (بروزرسانی خودکار جدول)</label>
+          <select id="refreshIntervalSelect" onchange="onRefreshIntervalChange()">
+            <option value="10000">۱۰ ثانیه (پیش‌فرض)</option>
+            <option value="15000">۱۵ ثانیه</option>
+            <option value="20000">۲۰ ثانیه</option>
+            <option value="30000">۳۰ ثانیه</option>
+            <option value="45000">۴۵ ثانیه</option>
+            <option value="60000">۱ دقیقه</option>
+          </select>
+        </div>
+        <div class="settings-field" style="margin-top: 16px;">
+          <label for="aiRateLimitSelect">فاصله‌ی هر درخواست به هوش مصنوعی (برای جلوگیری از بلاک‌شدن)</label>
+          <select id="aiRateLimitSelect" onchange="onAiRateLimitChange()">
+            <option value="10">۱۰ ثانیه (پیش‌فرض)</option>
+            <option value="15">۱۵ ثانیه</option>
+            <option value="20">۲۰ ثانیه</option>
+            <option value="30">۳۰ ثانیه</option>
+            <option value="45">۴۵ ثانیه</option>
+            <option value="60">۱ دقیقه</option>
+          </select>
+          <div id="aiRateLimitStatus" style="font-size:12px; color: var(--text-faint); margin-top:6px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
-    const REFRESH_INTERVAL_MS = 10000; // هر چند ثانیه جدول خودکار بروز شود
+    const REFRESH_INTERVAL_STORAGE_KEY = "carAdsRefreshIntervalMs";
+    const DEFAULT_REFRESH_INTERVAL_MS = 10000; // پیش‌فرض: هر ۱۰ ثانیه
     const CHANNEL_PREVIEW_DEBOUNCE_MS = 450;
     const ROWS_PER_PAGE = 10;
+
+    let REFRESH_INTERVAL_MS = parseInt(localStorage.getItem(REFRESH_INTERVAL_STORAGE_KEY), 10) || DEFAULT_REFRESH_INTERVAL_MS;
+    let refreshTimer = null;
 
     let allAnalyticsData = [];
     let currentPage = 1;
@@ -797,8 +867,83 @@
       if (event.target.id === "channelsModalOverlay") closeChannelsModal();
     }
 
+    // ---------- تنظیمات (فاصله‌ی درخواست به سرور) ----------
+
+    function startAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = setInterval(load, REFRESH_INTERVAL_MS);
+
+      const seconds = REFRESH_INTERVAL_MS / 1000;
+      const label = seconds >= 60 ? "هر ۱ دقیقه" : `هر ${seconds.toLocaleString("fa-IR")} ثانیه`;
+      document.getElementById("liveDot").title = `بروزرسانی خودکار ${label}`;
+    }
+
+    function openSettingsModal() {
+      document.getElementById("refreshIntervalSelect").value = String(REFRESH_INTERVAL_MS);
+      document.getElementById("settingsModalOverlay").style.display = "flex";
+      loadAiRateLimit();
+    }
+
+    async function loadAiRateLimit() {
+      const statusEl = document.getElementById("aiRateLimitStatus");
+      const selectEl = document.getElementById("aiRateLimitSelect");
+      statusEl.textContent = "در حال بارگذاری...";
+      try {
+        const res = await fetch("/api/car-ads-settings");
+        const json = await res.json();
+        if (json.error) {
+          statusEl.textContent = "❌ " + json.error;
+          return;
+        }
+        // نزدیک‌ترین گزینه‌ی موجود توی سلکت رو انتخاب کن (در صورتی که مقدار دقیق توی لیست نباشه)
+        const value = json.ai_rate_limit_seconds;
+        const options = Array.from(selectEl.options).map((o) => parseFloat(o.value));
+        const closest = options.reduce((a, b) => (Math.abs(b - value) < Math.abs(a - value) ? b : a));
+        selectEl.value = String(closest);
+        statusEl.textContent = "";
+      } catch (err) {
+        statusEl.textContent = "❌ خطا: " + err.message;
+      }
+    }
+
+    async function onAiRateLimitChange() {
+      const statusEl = document.getElementById("aiRateLimitStatus");
+      const value = parseFloat(document.getElementById("aiRateLimitSelect").value);
+      statusEl.textContent = "در حال ذخیره...";
+      try {
+        const res = await fetch("/api/car-ads-settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ai_rate_limit_seconds: value }),
+        });
+        const json = await res.json();
+        if (json.error) {
+          statusEl.textContent = "❌ " + json.error;
+          return;
+        }
+        statusEl.textContent = "✅ ذخیره شد";
+      } catch (err) {
+        statusEl.textContent = "❌ خطا: " + err.message;
+      }
+    }
+
+    function closeSettingsModal() {
+      document.getElementById("settingsModalOverlay").style.display = "none";
+    }
+
+    function closeSettingsModalOnOverlay(event) {
+      if (event.target.id === "settingsModalOverlay") closeSettingsModal();
+    }
+
+    function onRefreshIntervalChange() {
+      const value = parseInt(document.getElementById("refreshIntervalSelect").value, 10);
+      REFRESH_INTERVAL_MS = value;
+      localStorage.setItem(REFRESH_INTERVAL_STORAGE_KEY, String(value));
+      startAutoRefresh();
+    }
+
     load();
-    setInterval(load, REFRESH_INTERVAL_MS);
+    startAutoRefresh();
   </script>
 </body>
 </html>

@@ -25,10 +25,10 @@ import re
 
 import requests
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from analytics import get_price_analytics, get_ads_for_model
-from db import list_channels, add_channel, remove_channel
+from db import list_channels, add_channel, remove_channel, get_setting, set_setting
 
 app = FastAPI(title="car-ads-ai analytics API")
 
@@ -39,9 +39,17 @@ PROXY_HOST = os.getenv("PROXY_HOST", "127.0.0.1")
 PROXY_PORT = os.getenv("PROXY_PORT", "10808")
 PROXY_URL = f"socks5h://{PROXY_HOST}:{PROXY_PORT}" if USE_PROXY else None
 
+AI_RATE_LIMIT_SETTING_KEY = "ai_rate_limit_seconds"
+DEFAULT_AI_RATE_LIMIT_SECONDS = 10.0
+
 
 class ChannelIn(BaseModel):
     username: str
+
+
+class SettingsIn(BaseModel):
+    # محدوده‌ی مجاز دقیقاً همون چیزی است که توی UI (۱۰ ثانیه تا ۱ دقیقه) داریم
+    ai_rate_limit_seconds: float = Field(..., ge=10, le=60)
 
 
 def fetch_channel_preview(username: str) -> dict:
@@ -131,3 +139,24 @@ def create_channel(payload: ChannelIn):
 def delete_channel(username: str):
     remove_channel(username)
     return {"status": "ok", "username": username}
+
+
+@app.get("/settings")
+def get_settings():
+    """
+    تنظیمات قابل‌کنترل از داشبورد. فعلاً فقط فاصله‌ی حداقل بین تماس‌های AI
+    (llm_pool.py همین مقدار را مستقیم از دیتابیس می‌خواند، بدون نیاز به
+    ری‌استارت listener.py).
+    """
+    raw_value = get_setting(AI_RATE_LIMIT_SETTING_KEY, default=str(DEFAULT_AI_RATE_LIMIT_SECONDS))
+    try:
+        value = float(raw_value)
+    except (TypeError, ValueError):
+        value = DEFAULT_AI_RATE_LIMIT_SECONDS
+    return {"ai_rate_limit_seconds": value}
+
+
+@app.post("/settings")
+def update_settings(payload: SettingsIn):
+    set_setting(AI_RATE_LIMIT_SETTING_KEY, str(payload.ai_rate_limit_seconds))
+    return {"status": "ok", "ai_rate_limit_seconds": payload.ai_rate_limit_seconds}

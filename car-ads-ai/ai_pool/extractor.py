@@ -101,10 +101,11 @@ def extract_car_ad(message_text: str, max_attempts: int = 2) -> dict:
 
     last_error = None
     for attempt in range(1, max_attempts + 1):
-        raw_content, used_provider = call_with_fallback(messages)
+        raw_content, used_provider, used_model = call_with_fallback(messages)
         try:
             parsed = json.loads(_clean_json_text(raw_content))
             parsed["_provider_used"] = used_provider
+            parsed["_model_used"] = used_model
             return parsed
         except json.JSONDecodeError as e:
             last_error = e
