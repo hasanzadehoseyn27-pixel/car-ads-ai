@@ -1,419 +1,384 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-  <head>
-    <meta charset="UTF-8" />
-    <title>تحلیل قیمت آگهی‌های خودرو</title>
-    <style>
-      body {
-        background: #0f172a;
-        color: #e2e8f0;
-        font-family: Tahoma, Arial, sans-serif;
-        padding: 24px;
-      }
-      h1 {
-        color: #2dd4bf;
-        font-size: 20px;
-      }
-      h3 {
-        color: #5eead4;
-        font-size: 15px;
-        margin: 0 0 10px;
-      }
-      .toolbar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 16px;
-      }
+<head>
+<meta charset="UTF-8" />
+<title>تحلیل قیمت آگهی‌های خودرو</title>
+<style>
+  body {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: Tahoma, Arial, sans-serif;
+    padding: 24px;
+  }
+  h1 {
+    color: #2dd4bf;
+    font-size: 20px;
+  }
+  h3 {
+    color: #5eead4;
+    font-size: 15px;
+    margin: 0 0 10px;
+  }
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
 
-      /* پنل افزودن کانال */
-      .channels-panel {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 14px 16px;
-        margin-bottom: 20px;
-      }
-      .channel-add-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .channel-add-row input {
-        max-width: 240px;
-      }
-      .channel-preview {
-        font-size: 13px;
-        color: #64748b;
-        min-width: 140px;
-      }
-      .channel-preview.loading {
-        color: #94a3b8;
-      }
-      .channel-preview.found {
-        color: #6ee7b7;
-      }
-      .channel-preview.not-found {
-        color: #fca5a5;
-      }
+  /* پنل افزودن کانال */
+  .channels-panel {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+  }
+  .channel-add-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .channel-add-row input {
+    max-width: 240px;
+  }
+  .channel-preview {
+    font-size: 13px;
+    color: #64748b;
+    min-width: 140px;
+  }
+  .channel-preview.loading { color: #94a3b8; }
+  .channel-preview.found { color: #6ee7b7; }
+  .channel-preview.not-found { color: #fca5a5; }
 
-      .channel-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 8px 14px;
-        margin-bottom: 8px;
-      }
-      .channel-row .channel-name {
-        font-size: 14px;
-      }
-      .channel-status {
-        font-size: 11px;
-        padding: 2px 8px;
-        border-radius: 999px;
-      }
-      .channel-status.active {
-        background: #064e3b;
-        color: #6ee7b7;
-      }
-      .channel-status.inactive {
-        background: #3f1d1d;
-        color: #fca5a5;
-      }
+  .channel-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 8px 14px;
+    margin-bottom: 8px;
+  }
+  .channel-row .channel-name {
+    font-size: 14px;
+  }
+  .channel-status {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .channel-status.active {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
+  .channel-status.inactive {
+    background: #3f1d1d;
+    color: #fca5a5;
+  }
 
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        background: #1e293b;
-        border-radius: 8px;
-        overflow: hidden;
-      }
-      th,
-      td {
-        padding: 10px 14px;
-        text-align: right;
-        border-bottom: 1px solid #334155;
-      }
-      th {
-        background: #134e4a;
-        color: #5eead4;
-        font-size: 14px;
-      }
-      th.row-num,
-      td.row-num {
-        text-align: center;
-        color: #64748b;
-        width: 40px;
-      }
-      tbody tr {
-        cursor: pointer;
-      }
-      tbody tr:hover {
-        background: #273449;
-      }
-      .no-price {
-        color: #64748b;
-      }
-      input[type="text"] {
-        background: #0f172a;
-        color: #e2e8f0;
-        border: 1px solid #334155;
-        border-radius: 6px;
-        padding: 6px 10px;
-        font-family: inherit;
-      }
-      .toolbar input[type="text"] {
-        min-width: 260px;
-      }
-      button {
-        background: #134e4a;
-        color: #5eead4;
-        border: 1px solid #2dd4bf;
-        border-radius: 6px;
-        padding: 6px 12px;
-        font-family: inherit;
-        cursor: pointer;
-      }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #1e293b;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: right;
+    border-bottom: 1px solid #334155;
+  }
+  th {
+    background: #134e4a;
+    color: #5eead4;
+    font-size: 14px;
+  }
+  th.row-num, td.row-num {
+    text-align: center;
+    color: #64748b;
+    width: 40px;
+  }
+  tbody tr {
+    cursor: pointer;
+  }
+  tbody tr:hover {
+    background: #273449;
+  }
+  .no-price {
+    color: #64748b;
+  }
+  input[type="text"] {
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: inherit;
+  }
+  .toolbar input[type="text"] {
+    min-width: 260px;
+  }
+  button {
+    background: #134e4a;
+    color: #5eead4;
+    border: 1px solid #2dd4bf;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: inherit;
+    cursor: pointer;
+  }
 
-      /* مدال‌ها (مشترک بین مدال جزئیات مدل و مدال لیست کانال‌ها) */
-      .modal-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.6);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 50;
-        padding: 20px;
-      }
-      .modal-box {
-        background: #0f172a;
-        border: 1px solid #334155;
-        border-radius: 10px;
-        width: 100%;
-        max-width: 720px;
-        max-height: 85vh;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
-      .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 14px 18px;
-        border-bottom: 1px solid #334155;
-      }
-      .modal-header h2 {
-        margin: 0;
-        color: #5eead4;
-        font-size: 17px;
-      }
-      .modal-header button {
-        background: none;
-        border: none;
-        color: #94a3b8;
-        font-size: 18px;
-        cursor: pointer;
-      }
-      .modal-search-area {
-        padding: 12px 18px;
-        border-bottom: 1px solid #334155;
-      }
-      .modal-search-area input {
-        width: 100%;
-      }
-      #modalMeta {
-        padding: 6px 18px;
-        color: #94a3b8;
-        font-size: 13px;
-      }
-      #modalList,
-      #channelsModalList {
-        overflow-y: auto;
-        padding: 12px 18px;
-        flex: 1;
-      }
-      .ad-card {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 12px 14px;
-        margin-bottom: 10px;
-      }
-      .ad-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 6px;
-      }
-      .price-group {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .price-badge {
-        font-size: 11px;
-        padding: 2px 8px;
-        border-radius: 999px;
-        white-space: nowrap;
-      }
-      .price-badge.min {
-        background: #064e3b;
-        color: #6ee7b7;
-      }
-      .price-badge.max {
-        background: #7c2d12;
-        color: #fdba74;
-      }
-      .price-badge.equal {
-        background: #1e3a8a;
-        color: #93c5fd;
-      }
-      .ad-link {
-        color: #5eead4;
-        font-size: 13px;
-        text-decoration: none;
-      }
-      .ad-link:hover {
-        text-decoration: underline;
-      }
-      .ad-details {
-        color: #94a3b8;
-        font-size: 13px;
-        margin-bottom: 4px;
-      }
-      .ad-phone {
-        font-size: 13px;
-        margin-bottom: 4px;
-      }
-      .ad-notes {
-        color: #cbd5e1;
-        font-size: 13px;
-        margin-bottom: 6px;
-      }
-      .ad-text {
-        background: #0f172a;
-        border-radius: 6px;
-        padding: 8px 10px;
-        font-size: 13px;
-        color: #cbd5e1;
-        white-space: pre-wrap;
-        margin-bottom: 6px;
-      }
-      .ad-date {
-        color: #64748b;
-        font-size: 11px;
-        text-align: left;
-      }
-      .empty {
-        color: #64748b;
-        text-align: center;
-        padding: 30px 0;
-      }
-    </style>
-  </head>
-  <body>
-    <h1>📊 تحلیل قیمت آگهی‌های خودرو</h1>
+  /* مدال‌ها (مشترک بین مدال جزئیات مدل و مدال لیست کانال‌ها) */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 20px;
+  }
+  .modal-box {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 720px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid #334155;
+  }
+  .modal-header h2 {
+    margin: 0;
+    color: #5eead4;
+    font-size: 17px;
+  }
+  .modal-header button {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 18px;
+    cursor: pointer;
+  }
+  .modal-search-area {
+    padding: 12px 18px;
+    border-bottom: 1px solid #334155;
+  }
+  .modal-search-area input {
+    width: 100%;
+  }
+  #modalMeta {
+    padding: 6px 18px;
+    color: #94a3b8;
+    font-size: 13px;
+  }
+  #modalList, #channelsModalList {
+    overflow-y: auto;
+    padding: 12px 18px;
+    flex: 1;
+  }
+  .ad-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .ad-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .price-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .price-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .price-badge.min {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
+  .price-badge.max {
+    background: #7c2d12;
+    color: #fdba74;
+  }
+  .price-badge.equal {
+    background: #1e3a8a;
+    color: #93c5fd;
+  }
+  .ad-link {
+    color: #5eead4;
+    font-size: 13px;
+    text-decoration: none;
+  }
+  .ad-link:hover {
+    text-decoration: underline;
+  }
+  .ad-details {
+    color: #94a3b8;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .ad-phone {
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .ad-notes {
+    color: #cbd5e1;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  .ad-text {
+    background: #0f172a;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: #cbd5e1;
+    white-space: pre-wrap;
+    margin-bottom: 6px;
+  }
+  .ad-date {
+    color: #64748b;
+    font-size: 11px;
+    text-align: left;
+  }
+  .empty {
+    color: #64748b;
+    text-align: center;
+    padding: 30px 0;
+  }
+</style>
+</head>
+<body>
+  <h1>📊 تحلیل قیمت آگهی‌های خودرو</h1>
 
-    <div class="channels-panel">
-      <h3>مدیریت کانال‌ها</h3>
-      <div class="channel-add-row">
-        <input
-          type="text"
-          id="newChannelInput"
-          placeholder="نام کاربری کانال (بدون @)"
-          oninput="onChannelInputChange()"
-        />
-        <span id="channelPreview" class="channel-preview"></span>
-        <button onclick="addChannel()">افزودن</button>
-        <button onclick="openChannelsModal()">لیست کانال‌ها</button>
+  <div class="channels-panel">
+    <h3>مدیریت کانال‌ها</h3>
+    <div class="channel-add-row">
+      <input type="text" id="newChannelInput" placeholder="نام کاربری کانال (بدون @)" oninput="onChannelInputChange()" />
+      <span id="channelPreview" class="channel-preview"></span>
+      <button onclick="addChannel()">افزودن</button>
+      <button onclick="openChannelsModal()">لیست کانال‌ها</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="searchTable" placeholder="جستجوی مدل خودرو..." oninput="filterTable()" />
+  </div>
+
+  <table id="result">
+    <thead>
+      <tr>
+        <th class="row-num">ردیف</th>
+        <th>مدل خودرو</th>
+        <th>تعداد کل آگهی</th>
+        <th>آگهی با قیمت</th>
+        <th>حداقل قیمت</th>
+        <th>میانگین قیمت</th>
+        <th>حداکثر قیمت</th>
+        <th>آخرین آگهی</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- مدال جزئیات هر مدل خودرو -->
+  <div id="modalOverlay" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="modalTitle"></h2>
+        <button onclick="closeModal()">✕ بستن</button>
       </div>
-    </div>
-
-    <div class="toolbar">
-      <input
-        type="text"
-        id="searchTable"
-        placeholder="جستجوی مدل خودرو..."
-        oninput="filterTable()"
-      />
-    </div>
-
-    <table id="result">
-      <thead>
-        <tr>
-          <th class="row-num">ردیف</th>
-          <th>مدل خودرو</th>
-          <th>تعداد کل آگهی</th>
-          <th>آگهی با قیمت</th>
-          <th>حداقل قیمت</th>
-          <th>میانگین قیمت</th>
-          <th>حداکثر قیمت</th>
-          <th>آخرین آگهی</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <!-- مدال جزئیات هر مدل خودرو -->
-    <div
-      id="modalOverlay"
-      class="modal-overlay"
-      onclick="closeModalOnOverlay(event)"
-    >
-      <div class="modal-box">
-        <div class="modal-header">
-          <h2 id="modalTitle"></h2>
-          <button onclick="closeModal()">✕ بستن</button>
-        </div>
-        <div class="modal-search-area">
-          <input
-            type="text"
-            id="searchModal"
-            placeholder="جستجو در آگهی‌ها (تلفن، رنگ، توضیحات، متن پیام...)"
-            oninput="filterModalAds()"
-          />
-        </div>
-        <div id="modalMeta"></div>
-        <div id="modalList"></div>
+      <div class="modal-search-area">
+        <input type="text" id="searchModal" placeholder="جستجو در آگهی‌ها (تلفن، رنگ، توضیحات، متن پیام...)" oninput="filterModalAds()" />
       </div>
+      <div id="modalMeta"></div>
+      <div id="modalList"></div>
     </div>
+  </div>
 
-    <!-- مدال لیست کانال‌ها -->
-    <div
-      id="channelsModalOverlay"
-      class="modal-overlay"
-      onclick="closeChannelsModalOnOverlay(event)"
-    >
-      <div class="modal-box">
-        <div class="modal-header">
-          <h2>لیست کانال‌ها</h2>
-          <button onclick="closeChannelsModal()">✕ بستن</button>
-        </div>
-        <div class="modal-search-area">
-          <input
-            type="text"
-            id="searchChannelsModal"
-            placeholder="جستجوی کانال..."
-            oninput="filterChannelsModal()"
-          />
-        </div>
-        <div id="channelsModalList"></div>
+  <!-- مدال لیست کانال‌ها -->
+  <div id="channelsModalOverlay" class="modal-overlay" onclick="closeChannelsModalOnOverlay(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>لیست کانال‌ها</h2>
+        <button onclick="closeChannelsModal()">✕ بستن</button>
       </div>
+      <div class="modal-search-area">
+        <input type="text" id="searchChannelsModal" placeholder="جستجوی کانال..." oninput="filterChannelsModal()" />
+      </div>
+      <div id="channelsModalList"></div>
     </div>
+  </div>
 
-    <script>
-      const REFRESH_INTERVAL_MS = 10000; // هر چند ثانیه جدول خودکار بروز شود
-      const CHANNEL_PREVIEW_DEBOUNCE_MS = 450;
+  <script>
+    const REFRESH_INTERVAL_MS = 10000; // هر چند ثانیه جدول خودکار بروز شود
+    const CHANNEL_PREVIEW_DEBOUNCE_MS = 450;
 
-      let currentModalAds = [];
-      let modalOpenCarName = null;
-      let allChannels = [];
-      let channelPreviewTimeout = null;
+    let currentModalAds = [];
+    let modalOpenCarName = null;
+    let modalOpenTrim = null; // null یعنی گروه «بدون تیپ مشخص»
+    let allChannels = [];
+    let channelPreviewTimeout = null;
 
-      function formatToman(amount) {
-        if (amount === null || amount === undefined)
-          return '<span class="no-price">—</span>';
-        return amount.toLocaleString("fa-IR") + " تومان";
+    function formatToman(amount) {
+      if (amount === null || amount === undefined) return '<span class="no-price">—</span>';
+      return amount.toLocaleString("fa-IR") + " تومان";
+    }
+
+    function formatDate(iso) {
+      try {
+        return new Date(iso).toLocaleString("fa-IR");
+      } catch {
+        return iso;
       }
+    }
 
-      function formatDate(iso) {
-        try {
-          return new Date(iso).toLocaleString("fa-IR");
-        } catch {
-          return iso;
+    // ---------- جدول قیمت‌ها ----------
+
+    async function load() {
+      const tbody = document.querySelector("#result tbody");
+
+      try {
+        const res = await fetch(`/api/car-ads-analytics`);
+        const json = await res.json();
+
+        if (json.error) {
+          tbody.innerHTML = `<tr><td colspan="8">❌ ${json.error}</td></tr>`;
+          return;
         }
-      }
 
-      // ---------- جدول قیمت‌ها ----------
-
-      async function load() {
-        const tbody = document.querySelector("#result tbody");
-
-        try {
-          const res = await fetch(`/api/car-ads-analytics`);
-          const json = await res.json();
-
-          if (json.error) {
-            tbody.innerHTML = `<tr><td colspan="8">❌ ${json.error}</td></tr>`;
-            return;
-          }
-
-          tbody.innerHTML = "";
-          json.data.forEach((item, index) => {
-            const tr = document.createElement("tr");
-            tr.dataset.carName = item.car_name;
-            tr.onclick = () => openModal(item.car_name);
-            tr.innerHTML = `
+        tbody.innerHTML = "";
+        json.data.forEach((item, index) => {
+          const tr = document.createElement("tr");
+          tr.dataset.carName = item.car_name;
+          tr.dataset.trim = item.trim || "";
+          tr.dataset.displayName = item.display_name;
+          tr.onclick = () => openModal(item.car_name, item.trim, item.display_name);
+          tr.innerHTML = `
             <td class="row-num">${index + 1}</td>
-            <td>${item.car_name}</td>
+            <td>${item.display_name}</td>
             <td>${item.total_ads}</td>
             <td>${item.priced_ads}</td>
             <td>${formatToman(item.min_price)}</td>
@@ -421,341 +386,289 @@
             <td>${formatToman(item.max_price)}</td>
             <td>${formatDate(item.last_seen)}</td>
           `;
-            tbody.appendChild(tr);
-          });
-
-          filterTable();
-
-          if (modalOpenCarName) {
-            refreshModal(modalOpenCarName);
-          }
-        } catch (err) {
-          tbody.innerHTML = `<tr><td colspan="8">❌ خطا در دریافت اطلاعات: ${err.message}</td></tr>`;
-        }
-      }
-
-      function filterTable() {
-        const q = document
-          .getElementById("searchTable")
-          .value.trim()
-          .toLowerCase();
-        document.querySelectorAll("#result tbody tr").forEach((tr) => {
-          const carName = (tr.dataset.carName || "").toLowerCase();
-          tr.style.display = carName.includes(q) ? "" : "none";
+          tbody.appendChild(tr);
         });
-      }
 
-      // ---------- مدال جزئیات هر مدل ----------
+        filterTable();
 
-      async function openModal(carName) {
-        modalOpenCarName = carName;
-        document.getElementById("modalTitle").textContent = carName;
-        document.getElementById("modalMeta").textContent = "در حال بارگذاری...";
-        document.getElementById("modalList").innerHTML = "";
-        document.getElementById("searchModal").value = "";
-        document.getElementById("modalOverlay").style.display = "flex";
-        await refreshModal(carName);
-      }
-
-      async function refreshModal(carName) {
-        try {
-          const url = `/api/car-ads-ads?car_name=${encodeURIComponent(
-            carName
-          )}`;
-          const res = await fetch(url);
-          const json = await res.json();
-
-          if (json.error) {
-            document.getElementById("modalMeta").textContent =
-              "❌ " + json.error;
-            return;
-          }
-
-          currentModalAds = json.data;
-          filterModalAds();
-
-          const prices = currentModalAds
-            .map((ad) => ad.price_amount)
-            .filter((p) => p !== null && p !== undefined);
-
-          let metaText = `${json.count} آگهی`;
-          if (prices.length > 0) {
-            const min = Math.min(...prices);
-            const max = Math.max(...prices);
-            metaText += ` — کمترین قیمت: ${formatToman(
-              min
-            )} — بیشترین قیمت: ${formatToman(max)}`;
-          }
-          document.getElementById("modalMeta").innerHTML = metaText;
-        } catch (err) {
-          document.getElementById("modalMeta").textContent =
-            "❌ خطا: " + err.message;
+        if (modalOpenCarName) {
+          refreshModal(modalOpenCarName, modalOpenTrim);
         }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="8">❌ خطا در دریافت اطلاعات: ${err.message}</td></tr>`;
       }
+    }
 
-      function renderModalAds(ads) {
-        const list = document.getElementById("modalList");
-        list.innerHTML = "";
+    function filterTable() {
+      const q = document.getElementById("searchTable").value.trim().toLowerCase();
+      document.querySelectorAll("#result tbody tr").forEach((tr) => {
+        const displayName = (tr.dataset.displayName || "").toLowerCase();
+        tr.style.display = displayName.includes(q) ? "" : "none";
+      });
+    }
 
-        if (ads.length === 0) {
-          list.innerHTML = '<div class="empty">آگهی‌ای پیدا نشد</div>';
+    // ---------- مدال جزئیات هر مدل ----------
+
+    async function openModal(carName, trim, displayName) {
+      modalOpenCarName = carName;
+      modalOpenTrim = trim || null;
+      document.getElementById("modalTitle").textContent = displayName || carName;
+      document.getElementById("modalMeta").textContent = "در حال بارگذاری...";
+      document.getElementById("modalList").innerHTML = "";
+      document.getElementById("searchModal").value = "";
+      document.getElementById("modalOverlay").style.display = "flex";
+      await refreshModal(carName, modalOpenTrim);
+    }
+
+    async function refreshModal(carName, trim) {
+      try {
+        let url = `/api/car-ads-ads?car_name=${encodeURIComponent(carName)}`;
+        if (trim) {
+          url += `&trim=${encodeURIComponent(trim)}`;
+        }
+        const res = await fetch(url);
+        const json = await res.json();
+
+        if (json.error) {
+          document.getElementById("modalMeta").textContent = "❌ " + json.error;
           return;
         }
 
-        // کمترین/بیشترین قیمت همیشه از کل آگهی‌های این مدل محاسبه می‌شود
-        // (نه فقط از زیرمجموعه‌ای که الان با سرچ فیلتر شده)، تا برچسب‌ها
-        // با تغییر متن سرچ عوض/گم نشوند.
-        const allPrices = currentModalAds
-          .map((a) => a.price_amount)
+        currentModalAds = json.data;
+        filterModalAds();
+
+        const prices = currentModalAds
+          .map((ad) => ad.price_amount)
           .filter((p) => p !== null && p !== undefined);
-        const minPrice = allPrices.length ? Math.min(...allPrices) : null;
-        const maxPrice = allPrices.length ? Math.max(...allPrices) : null;
 
-        ads.forEach((ad) => {
-          const priceText = ad.price_amount
-            ? formatToman(ad.price_amount)
-            : ad.price_label
-            ? ad.price_label
-            : '<span class="no-price">بدون قیمت مشخص</span>';
+        let metaText = `${json.count} آگهی`;
+        if (prices.length > 0) {
+          const min = Math.min(...prices);
+          const max = Math.max(...prices);
+          metaText += ` — کمترین قیمت: ${formatToman(min)} — بیشترین قیمت: ${formatToman(max)}`;
+        }
+        document.getElementById("modalMeta").innerHTML = metaText;
+      } catch (err) {
+        document.getElementById("modalMeta").textContent = "❌ خطا: " + err.message;
+      }
+    }
 
-          let badge = "";
-          if (ad.price_amount !== null && ad.price_amount !== undefined) {
-            if (minPrice === maxPrice) {
-              badge =
-                '<span class="price-badge equal">⭐ تنها قیمت موجود</span>';
-            } else if (ad.price_amount === minPrice) {
-              badge = '<span class="price-badge min">🔻 کمترین قیمت</span>';
-            } else if (ad.price_amount === maxPrice) {
-              badge = '<span class="price-badge max">🔺 بیشترین قیمت</span>';
-            }
+    function renderModalAds(ads) {
+      const list = document.getElementById("modalList");
+      list.innerHTML = "";
+
+      if (ads.length === 0) {
+        list.innerHTML = '<div class="empty">آگهی‌ای پیدا نشد</div>';
+        return;
+      }
+
+      // کمترین/بیشترین قیمت همیشه از کل آگهی‌های این مدل محاسبه می‌شود
+      // (نه فقط از زیرمجموعه‌ای که الان با سرچ فیلتر شده)، تا برچسب‌ها
+      // با تغییر متن سرچ عوض/گم نشوند.
+      const allPrices = currentModalAds
+        .map((a) => a.price_amount)
+        .filter((p) => p !== null && p !== undefined);
+      const minPrice = allPrices.length ? Math.min(...allPrices) : null;
+      const maxPrice = allPrices.length ? Math.max(...allPrices) : null;
+
+      ads.forEach((ad) => {
+        const priceText = ad.price_amount
+          ? formatToman(ad.price_amount)
+          : (ad.price_label ? ad.price_label : '<span class="no-price">بدون قیمت مشخص</span>');
+
+        let badge = "";
+        if (ad.price_amount !== null && ad.price_amount !== undefined) {
+          if (minPrice === maxPrice) {
+            badge = '<span class="price-badge equal">⭐ تنها قیمت موجود</span>';
+          } else if (ad.price_amount === minPrice) {
+            badge = '<span class="price-badge min">🔻 کمترین قیمت</span>';
+          } else if (ad.price_amount === maxPrice) {
+            badge = '<span class="price-badge max">🔺 بیشترین قیمت</span>';
           }
+        }
 
-          const detailsParts = [];
-          if (ad.color) detailsParts.push("رنگ: " + ad.color);
-          if (ad.trim) detailsParts.push("تیپ: " + ad.trim);
-          if (ad.production_year)
-            detailsParts.push("سال: " + ad.production_year);
-          if (ad.mileage_km)
-            detailsParts.push(
-              "کارکرد: " + ad.mileage_km.toLocaleString("fa-IR") + " کیلومتر"
-            );
-          if (ad.city) detailsParts.push("شهر: " + ad.city);
+        const detailsParts = [];
+        if (ad.color) detailsParts.push("رنگ: " + ad.color);
+        if (ad.trim) detailsParts.push("تیپ: " + ad.trim);
+        if (ad.production_year) detailsParts.push("سال: " + ad.production_year);
+        if (ad.mileage_km) detailsParts.push("کارکرد: " + ad.mileage_km.toLocaleString("fa-IR") + " کیلومتر");
+        if (ad.city) detailsParts.push("شهر: " + ad.city);
 
-          const card = document.createElement("div");
-          card.className = "ad-card";
-          card.innerHTML = `
+        const card = document.createElement("div");
+        card.className = "ad-card";
+        card.innerHTML = `
           <div class="ad-row">
             <div class="price-group">
               <strong>${priceText}</strong>
               ${badge}
             </div>
-            <a href="${
-              ad.telegram_link
-            }" target="_blank" rel="noopener" class="ad-link">مشاهده در تلگرام ↗</a>
+            <a href="${ad.telegram_link}" target="_blank" rel="noopener" class="ad-link">مشاهده در تلگرام ↗</a>
           </div>
-          ${
-            detailsParts.length
-              ? `<div class="ad-details">${detailsParts.join(" — ")}</div>`
-              : ""
-          }
+          ${detailsParts.length ? `<div class="ad-details">${detailsParts.join(" — ")}</div>` : ""}
           ${ad.phone ? `<div class="ad-phone">📞 ${ad.phone}</div>` : ""}
           ${ad.notes ? `<div class="ad-notes">${ad.notes}</div>` : ""}
-          ${
-            ad.message_text
-              ? `<div class="ad-text">${ad.message_text}</div>`
-              : ""
-          }
+          ${ad.message_text ? `<div class="ad-text">${ad.message_text}</div>` : ""}
           <div class="ad-date">${formatDate(ad.created_at)}</div>
         `;
-          list.appendChild(card);
-        });
-      }
+        list.appendChild(card);
+      });
+    }
 
-      function filterModalAds() {
-        const q = document
-          .getElementById("searchModal")
-          .value.trim()
+    function filterModalAds() {
+      const q = document.getElementById("searchModal").value.trim().toLowerCase();
+      if (!q) {
+        renderModalAds(currentModalAds);
+        return;
+      }
+      const filtered = currentModalAds.filter((ad) => {
+        const haystack = [ad.phone, ad.color, ad.trim, ad.notes, ad.message_text, ad.city, ad.price_label]
+          .filter(Boolean)
+          .join(" ")
           .toLowerCase();
-        if (!q) {
-          renderModalAds(currentModalAds);
-          return;
-        }
-        const filtered = currentModalAds.filter((ad) => {
-          const haystack = [
-            ad.phone,
-            ad.color,
-            ad.trim,
-            ad.notes,
-            ad.message_text,
-            ad.city,
-            ad.price_label,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return haystack.includes(q);
-        });
-        renderModalAds(filtered);
+        return haystack.includes(q);
+      });
+      renderModalAds(filtered);
+    }
+
+    function closeModal() {
+      modalOpenCarName = null;
+      modalOpenTrim = null;
+      document.getElementById("modalOverlay").style.display = "none";
+    }
+
+    function closeModalOnOverlay(event) {
+      if (event.target.id === "modalOverlay") closeModal();
+    }
+
+    // ---------- پیش‌نمایش زنده‌ی نام کانال ----------
+
+    function onChannelInputChange() {
+      clearTimeout(channelPreviewTimeout);
+      const username = document.getElementById("newChannelInput").value.trim().replace(/^@/, "");
+      const previewEl = document.getElementById("channelPreview");
+
+      if (!username) {
+        previewEl.textContent = "";
+        previewEl.className = "channel-preview";
+        return;
       }
 
-      function closeModal() {
-        modalOpenCarName = null;
-        document.getElementById("modalOverlay").style.display = "none";
-      }
+      previewEl.textContent = "در حال جستجو...";
+      previewEl.className = "channel-preview loading";
 
-      function closeModalOnOverlay(event) {
-        if (event.target.id === "modalOverlay") closeModal();
-      }
-
-      // ---------- پیش‌نمایش زنده‌ی نام کانال ----------
-
-      function onChannelInputChange() {
-        clearTimeout(channelPreviewTimeout);
-        const username = document
-          .getElementById("newChannelInput")
-          .value.trim()
-          .replace(/^@/, "");
-        const previewEl = document.getElementById("channelPreview");
-
-        if (!username) {
+      channelPreviewTimeout = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/car-ads-channel-preview?username=${encodeURIComponent(username)}`);
+          const json = await res.json();
+          if (json.found) {
+            previewEl.textContent = "✅ " + json.title;
+            previewEl.className = "channel-preview found";
+          } else {
+            previewEl.textContent = "❌ کانالی با این نام پیدا نشد";
+            previewEl.className = "channel-preview not-found";
+          }
+        } catch (err) {
           previewEl.textContent = "";
           previewEl.className = "channel-preview";
-          return;
         }
+      }, CHANNEL_PREVIEW_DEBOUNCE_MS);
+    }
 
-        previewEl.textContent = "در حال جستجو...";
-        previewEl.className = "channel-preview loading";
+    // ---------- افزودن کانال ----------
 
-        channelPreviewTimeout = setTimeout(async () => {
-          try {
-            const res = await fetch(
-              `/api/car-ads-channel-preview?username=${encodeURIComponent(
-                username
-              )}`
-            );
-            const json = await res.json();
-            if (json.found) {
-              previewEl.textContent = "✅ " + json.title;
-              previewEl.className = "channel-preview found";
-            } else {
-              previewEl.textContent = "❌ کانالی با این نام پیدا نشد";
-              previewEl.className = "channel-preview not-found";
-            }
-          } catch (err) {
-            previewEl.textContent = "";
-            previewEl.className = "channel-preview";
-          }
-        }, CHANNEL_PREVIEW_DEBOUNCE_MS);
-      }
+    async function addChannel() {
+      const input = document.getElementById("newChannelInput");
+      const username = input.value.trim().replace(/^@/, "");
+      if (!username) return;
 
-      // ---------- افزودن کانال ----------
+      await fetch("/api/car-ads-channels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      });
 
-      async function addChannel() {
-        const input = document.getElementById("newChannelInput");
-        const username = input.value.trim().replace(/^@/, "");
-        if (!username) return;
+      input.value = "";
+      document.getElementById("channelPreview").textContent = "";
+      document.getElementById("channelPreview").className = "channel-preview";
 
-        await fetch("/api/car-ads-channels", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username }),
-        });
-
-        input.value = "";
-        document.getElementById("channelPreview").textContent = "";
-        document.getElementById("channelPreview").className = "channel-preview";
-
-        // اگه مدال لیست کانال‌ها باز بود، بروزش کن
-        if (
-          document.getElementById("channelsModalOverlay").style.display ===
-          "flex"
-        ) {
-          await loadChannelsModal();
-        }
-      }
-
-      // ---------- مدال لیست کانال‌ها (سرچ + حذف) ----------
-
-      async function openChannelsModal() {
-        document.getElementById("searchChannelsModal").value = "";
-        document.getElementById("channelsModalOverlay").style.display = "flex";
+      // اگه مدال لیست کانال‌ها باز بود، بروزش کن
+      if (document.getElementById("channelsModalOverlay").style.display === "flex") {
         await loadChannelsModal();
       }
+    }
 
-      async function loadChannelsModal() {
-        const list = document.getElementById("channelsModalList");
-        list.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
-        try {
-          const res = await fetch("/api/car-ads-channels");
-          const json = await res.json();
-          allChannels = json.data || [];
-          filterChannelsModal();
-        } catch (err) {
-          list.innerHTML = `<div class="empty">❌ خطا: ${err.message}</div>`;
-        }
+    // ---------- مدال لیست کانال‌ها (سرچ + حذف) ----------
+
+    async function openChannelsModal() {
+      document.getElementById("searchChannelsModal").value = "";
+      document.getElementById("channelsModalOverlay").style.display = "flex";
+      await loadChannelsModal();
+    }
+
+    async function loadChannelsModal() {
+      const list = document.getElementById("channelsModalList");
+      list.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
+      try {
+        const res = await fetch("/api/car-ads-channels");
+        const json = await res.json();
+        allChannels = json.data || [];
+        filterChannelsModal();
+      } catch (err) {
+        list.innerHTML = `<div class="empty">❌ خطا: ${err.message}</div>`;
+      }
+    }
+
+    function filterChannelsModal() {
+      const q = document.getElementById("searchChannelsModal").value.trim().toLowerCase();
+      const filtered = allChannels.filter((ch) => ch.username.toLowerCase().includes(q));
+      renderChannelsModal(filtered);
+    }
+
+    function renderChannelsModal(channels) {
+      const list = document.getElementById("channelsModalList");
+      list.innerHTML = "";
+
+      if (channels.length === 0) {
+        list.innerHTML = '<div class="empty">کانالی پیدا نشد</div>';
+        return;
       }
 
-      function filterChannelsModal() {
-        const q = document
-          .getElementById("searchChannelsModal")
-          .value.trim()
-          .toLowerCase();
-        const filtered = allChannels.filter((ch) =>
-          ch.username.toLowerCase().includes(q)
-        );
-        renderChannelsModal(filtered);
-      }
-
-      function renderChannelsModal(channels) {
-        const list = document.getElementById("channelsModalList");
-        list.innerHTML = "";
-
-        if (channels.length === 0) {
-          list.innerHTML = '<div class="empty">کانالی پیدا نشد</div>';
-          return;
-        }
-
-        channels.forEach((ch) => {
-          const row = document.createElement("div");
-          row.className = "channel-row";
-          row.innerHTML = `
+      channels.forEach((ch) => {
+        const row = document.createElement("div");
+        row.className = "channel-row";
+        row.innerHTML = `
           <span class="channel-name">@${ch.username}</span>
-          <span class="channel-status ${ch.active ? "active" : "inactive"}">${
-            ch.active ? "فعال" : "غیرفعال"
-          }</span>
+          <span class="channel-status ${ch.active ? "active" : "inactive"}">${ch.active ? "فعال" : "غیرفعال"}</span>
         `;
-          const btn = document.createElement("button");
-          btn.textContent = ch.active ? "حذف" : "فعال‌سازی";
-          btn.onclick = async () => {
-            if (ch.active) {
-              await fetch(
-                `/api/car-ads-channels/${encodeURIComponent(ch.username)}`,
-                { method: "DELETE" }
-              );
-            } else {
-              await fetch("/api/car-ads-channels", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username: ch.username }),
-              });
-            }
-            await loadChannelsModal();
-          };
-          row.appendChild(btn);
-          list.appendChild(row);
-        });
-      }
+        const btn = document.createElement("button");
+        btn.textContent = ch.active ? "حذف" : "فعال‌سازی";
+        btn.onclick = async () => {
+          if (ch.active) {
+            await fetch(`/api/car-ads-channels/${encodeURIComponent(ch.username)}`, { method: "DELETE" });
+          } else {
+            await fetch("/api/car-ads-channels", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username: ch.username }),
+            });
+          }
+          await loadChannelsModal();
+        };
+        row.appendChild(btn);
+        list.appendChild(row);
+      });
+    }
 
-      function closeChannelsModal() {
-        document.getElementById("channelsModalOverlay").style.display = "none";
-      }
+    function closeChannelsModal() {
+      document.getElementById("channelsModalOverlay").style.display = "none";
+    }
 
-      function closeChannelsModalOnOverlay(event) {
-        if (event.target.id === "channelsModalOverlay") closeChannelsModal();
-      }
+    function closeChannelsModalOnOverlay(event) {
+      if (event.target.id === "channelsModalOverlay") closeChannelsModal();
+    }
 
-      load();
-      setInterval(load, REFRESH_INTERVAL_MS);
-    </script>
-  </body>
+    load();
+    setInterval(load, REFRESH_INTERVAL_MS);
+  </script>
+</body>
 </html>

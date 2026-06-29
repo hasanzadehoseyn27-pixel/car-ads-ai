@@ -92,11 +92,13 @@ def analytics(
 @app.get("/ads")
 def ads(
     car_name: str = Query(..., description="نام دقیق مدل خودرو (همانی که در /analytics برگردانده می‌شود)"),
+    trim: str | None = Query(None, description="تیپ مشخص (مثلاً «دنده‌ای»)؛ نبودش یعنی گروه «بدون تیپ مشخص»"),
     hours: int = Query(24, ge=1, le=168),
 ):
-    data = get_ads_for_model(car_name=car_name, hours=hours)
+    data = get_ads_for_model(car_name=car_name, trim=trim, hours=hours)
     return {
         "car_name": car_name,
+        "trim": trim,
         "hours": hours,
         "count": len(data),
         "data": data,

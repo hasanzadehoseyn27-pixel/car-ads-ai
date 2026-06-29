@@ -28,12 +28,16 @@ fastify.get("/api/car-ads-analytics", async (req, reply) => {
 fastify.get("/api/car-ads-ads", async (req, reply) => {
   const hours = req.query.hours || 24;
   const carName = req.query.car_name;
+  const trim = req.query.trim; // undefined یعنی گروه «بدون تیپ مشخص»
   if (!carName) {
     reply.code(400);
     return { error: "پارامتر car_name الزامی است" };
   }
   try {
-    const url = `${ANALYTICS_SERVICE_URL}/ads?car_name=${encodeURIComponent(carName)}&hours=${hours}`;
+    let url = `${ANALYTICS_SERVICE_URL}/ads?car_name=${encodeURIComponent(carName)}&hours=${hours}`;
+    if (trim !== undefined) {
+      url += `&trim=${encodeURIComponent(trim)}`;
+    }
     const res = await fetch(url);
     if (!res.ok) {
       reply.code(502);

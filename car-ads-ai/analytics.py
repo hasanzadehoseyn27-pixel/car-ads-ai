@@ -37,7 +37,7 @@ def _dedupe_rows(rows: list[sqlite3.Row]) -> list[dict]:
             standalone.append(item)
             continue
 
-        key = (phone, item["car_name"])
+        key = (phone, item["car_name"], item.get("trim"))
         existing = groups.get(key)
         if existing is None or item["created_at"] > existing["created_at"]:
             item["repost_count"] = (existing["repost_count"] + 1) if existing else 1
@@ -48,11 +48,20 @@ def _dedupe_rows(rows: list[sqlite3.Row]) -> list[dict]:
     return list(groups.values()) + standalone
 
 
+def _display_name(car_name: str, trim: str | None) -> str:
+    """نام نمایشی ترکیبی — مثلاً «دنا (دنده‌ای)» — وقتی تیپ مشخص باشد."""
+    if trim and trim.strip():
+        return f"{car_name} ({trim.strip()})"
+    return car_name
+
+
 def get_price_analytics(hours: int = 24) -> list[dict]:
     """
-    خروجی: لیستی از دیکشنری‌ها، هر کدوم برای یک car_name:
+    خروجی: لیستی از دیکشنری‌ها، هر کدوم برای یک ترکیب (car_name, trim):
         {
             "car_name": str,
+            "trim": str | None,
+            "display_name": str,   # مثلاً "دنا (دنده‌ای)" یا فقط "دنا" اگه تیپ نداشت
             "total_ads": int,    # تعداد آگهی‌های یکتا (بعد از دیداپ بازنشرها)
             "priced_ads": int,   # تعداد آگهی‌هایی که قیمت مشخص دارند
             "min_price": int | None,
@@ -62,7 +71,12 @@ def get_price_analytics(hours: int = 24) -> list[dict]:
         }
     مرتب‌شده بر اساس تعداد آگهی (پرتکرارترین مدل‌ها اول).
 
-    دیداپ: آگهی‌هایی با شماره تلفن + مدل یکسان، یک آگهی حساب می‌شوند
+    چرا تیپ (trim) هم جزو کلید گروه‌بندی است: برای مدل‌هایی مثل دنا که هم
+    دنده‌ای و هم اتومات دارند و قیمتشان واقعاً فرق دارد، قاطی‌کردن همه زیر
+    یک میانگین گمراه‌کننده است — هر تیپ ردیف و میانگین جدای خودش را دارد.
+    آگهی‌های بدون تیپ مشخص با هم در یک گروه «بدون تیپ» قرار می‌گیرند.
+
+    دیداپ: آگهی‌هایی با شماره تلفن + مدل + تیپ یکسان، یک آگهی حساب می‌شوند
     (جزئیات در _dedupe_rows). داده‌ی خام car_ads.db دست‌نخورده می‌ماند.
 
     توجه: فقط آگهی‌های ad_type='for_sale' حساب می‌شوند — آگهی‌های «خریدارم»
@@ -72,9 +86,10 @@ def get_price_analytics(hours: int = 24) -> list[dict]:
 
     توجه: car_name همان متنی است که AI استخراج کرده (مثلاً «کیا سراتو»).
     اگه یک مدل با چند املای متفاوت استخراج شده باشد (مثلاً «سراتو» و
-    «کیا سراتو» جدا حساب می‌شوند) — این یک محدودیت شناخته‌شده در نسخه‌ی
-    فعلی است و بعداً می‌شود با نرمال‌سازی اسم مدل (مثلاً قبل از GROUP BY)
-    بهترش کرد.
+    «کیا سراتو»، یا فارسی/انگلیسی) جدا حساب می‌شوند — این یک محدودیت
+    شناخته‌شده است؛ پرامپت استخراج (extractor.py) سعی می‌کند با اجباری‌کردن
+    نام فارسی همیشگی این مورد را کم کند، ولی خطاهای تک‌حرفی AI کاملاً حذف
+    نمی‌شوند.
     """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
@@ -98,16 +113,19 @@ def get_price_analytics(hours: int = 24) -> list[dict]:
 
     deduped = _dedupe_rows(rows)
 
-    by_model: dict[str, list[dict]] = {}
+    by_model: dict[tuple, list[dict]] = {}
     for item in deduped:
-        by_model.setdefault(item["car_name"], []).append(item)
+        key = (item["car_name"], item.get("trim"))
+        by_model.setdefault(key, []).append(item)
 
     result = []
-    for car_name, items in by_model.items():
+    for (car_name, trim), items in by_model.items():
         prices = [it["price_amount"] for it in items if it["price_amount"] is not None]
         result.append(
             {
                 "car_name": car_name,
+                "trim": trim,
+                "display_name": _display_name(car_name, trim),
                 "total_ads": len(items),
                 "priced_ads": len(prices),
                 "min_price": min(prices) if prices else None,
@@ -121,13 +139,16 @@ def get_price_analytics(hours: int = 24) -> list[dict]:
     return result
 
 
-def get_ads_for_model(car_name: str, hours: int = 24) -> list[dict]:
+def get_ads_for_model(car_name: str, trim: str | None = None, hours: int = 24) -> list[dict]:
     """
-    همه‌ی آگهی‌های یک مدل خاص (car_name) در بازه‌ی زمانی مشخص را برمی‌گرداند —
-    چه با قیمت و چه بدون قیمت. برای نمایش در مدال جزئیات استفاده می‌شود.
-    هر ردیف یک فیلد اضافه‌ی telegram_link هم دارد که مستقیم به همان پیام
-    اصلی توی تلگرام لینک می‌دهد (channel + message_id را که از قبل
-    ذخیره می‌کنیم استفاده می‌کند).
+    همه‌ی آگهی‌های یک ترکیب (car_name, trim) خاص در بازه‌ی زمانی مشخص را
+    برمی‌گرداند — چه با قیمت و چه بدون قیمت. برای نمایش در مدال جزئیات
+    استفاده می‌شود. هر ردیف یک فیلد اضافه‌ی telegram_link هم دارد که
+    مستقیم به همان پیام اصلی توی تلگرام لینک می‌دهد (channel + message_id
+    را که از قبل ذخیره می‌کنیم استفاده می‌کند).
+
+    trim=None یعنی گروه «بدون تیپ مشخص» (یعنی ستون trim توی دیتابیس NULL
+    است)، نه «هر تیپی». این با همون گروه‌بندی get_price_analytics هم‌خوانه.
 
     توجه: فقط آگهی‌های ad_type='for_sale' برگردانده می‌شوند، با همون منطق
     get_price_analytics (آگهی‌های «خریدارم» را کنار می‌گذاریم تا بودجه‌ی
@@ -138,17 +159,30 @@ def get_ads_for_model(car_name: str, hours: int = 24) -> list[dict]:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
-        rows = conn.execute(
+        if trim is None:
+            query = """
+                SELECT *
+                FROM car_ads
+                WHERE created_at >= ?
+                  AND car_name = ?
+                  AND trim IS NULL
+                  AND ad_type = 'for_sale'
+                ORDER BY created_at DESC
             """
-            SELECT *
-            FROM car_ads
-            WHERE created_at >= ?
-              AND car_name = ?
-              AND ad_type = 'for_sale'
-            ORDER BY created_at DESC
-            """,
-            (cutoff, car_name),
-        ).fetchall()
+            params = (cutoff, car_name)
+        else:
+            query = """
+                SELECT *
+                FROM car_ads
+                WHERE created_at >= ?
+                  AND car_name = ?
+                  AND trim = ?
+                  AND ad_type = 'for_sale'
+                ORDER BY created_at DESC
+            """
+            params = (cutoff, car_name, trim)
+
+        rows = conn.execute(query, params).fetchall()
     finally:
         conn.close()
 
@@ -172,9 +206,9 @@ def _print_report(hours: int = 24):
         print(f"هیچ آگهی‌ای در {hours} ساعت اخیر پیدا نشد.")
         return
 
-    print(f"\n📊 تحلیل قیمت — {hours} ساعت اخیر ({len(data)} مدل)\n")
+    print(f"\n📊 تحلیل قیمت — {hours} ساعت اخیر ({len(data)} گروه)\n")
     for item in data:
-        print(f"🚗 {item['car_name']}  —  {item['total_ads']} آگهی ({item['priced_ads']} با قیمت مشخص)")
+        print(f"🚗 {item['display_name']}  —  {item['total_ads']} آگهی ({item['priced_ads']} با قیمت مشخص)")
         if item["priced_ads"] > 0:
             print(f"   حداقل:   {_format_toman(item['min_price'])}")
             print(f"   میانگین: {_format_toman(item['avg_price'])}")
