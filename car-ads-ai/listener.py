@@ -86,6 +86,15 @@ async def live_handler(event):
     if not event.is_channel:
         return
 
+    # گاهی Telethon می‌تواند آپدیت یک کانال را با is_channel=True بدهد ولی
+    # خودِ entity چت (event.chat) را نتواند resolve کند — در این حالت
+    # event.chat می‌شود None و قبلاً همین‌جا با AttributeError کرش می‌کردیم.
+    # چنین پیامی برای ما قابل‌شناسایی نیست (نمی‌دانیم از کدام کانال آمده)،
+    # پس بی‌خطر رد می‌شود.
+    if event.chat is None:
+        print("⏭️  آپدیتی با چت ناشناس (event.chat=None) دریافت شد — رد شد")
+        return
+
     channel_name = event.chat.username or str(event.chat_id)
     if channel_name not in active_channels:
         return  # کانالی که هنوز فعال نشده یا غیرفعال شده — رد می‌شود

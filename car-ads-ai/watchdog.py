@@ -26,12 +26,20 @@ listener.py با همون پایتونی اجرا می‌شه که خودِ watc
     Ctrl+C
 """
 
+import io
 import os
 import subprocess
 import sys
 import time
 from collections import deque
 from datetime import datetime
+
+# روی ویندوز (مخصوصاً زیر PM2) stdout/stderr خودِ watchdog معمولاً با codepage
+# پیش‌فرض سیستم (مثلاً cp1252) باز می‌شود که نمی‌تواند حروف فارسی/ایموجی را
+# encode کند و با UnicodeEncodeError کرش می‌کند. اینجا صریحاً به UTF-8
+# سوییچ می‌کنیم تا این مشکل دیگر اتفاق نیفتد.
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 # ----------------- تنظیمات -----------------
 SCRIPT_TO_RUN = [sys.executable, "listener.py"]
