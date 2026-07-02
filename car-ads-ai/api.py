@@ -27,7 +27,13 @@ import requests
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
 
-from analytics import get_price_analytics, get_ads_for_model, get_daily_lowest_prices
+from analytics import (
+    get_price_analytics,
+    get_ads_for_model,
+    get_daily_lowest_prices,
+    get_wanted_ads,
+    get_no_price_ads,
+)
 from db import (
     list_channels,
     add_channel,
@@ -149,6 +155,26 @@ def daily_report():
     data = get_daily_lowest_prices()
     return {
         "models_count": len(data),
+        "data": data,
+    }
+
+
+@app.get("/wanted-ads")
+def wanted_ads(hours: int = Query(168, ge=1, le=168)):
+    """آگهی‌های «خریدارم» — جدا از تحلیل قیمت، برای نمایش در یک لیست ساده."""
+    data = get_wanted_ads(hours=hours)
+    return {
+        "count": len(data),
+        "data": data,
+    }
+
+
+@app.get("/no-price-ads")
+def no_price_ads(hours: int = Query(168, ge=1, le=168)):
+    """آگهی‌های فروش بدون قیمت مشخص — جدا از تحلیل قیمت، برای بررسی دستی."""
+    data = get_no_price_ads(hours=hours)
+    return {
+        "count": len(data),
         "data": data,
     }
 

@@ -72,6 +72,40 @@ fastify.get("/api/car-ads-daily-report", async (req, reply) => {
   }
 });
 
+fastify.get("/api/car-ads-wanted-ads", async (req, reply) => {
+  const hours = req.query.hours || 168;
+  try {
+    const res = await fetch(
+      `${ANALYTICS_SERVICE_URL}/wanted-ads?hours=${hours}`
+    );
+    if (!res.ok) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai پاسخ درستی نداد" };
+    }
+    return await res.json();
+  } catch (err) {
+    reply.code(502);
+    return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+  }
+});
+
+fastify.get("/api/car-ads-no-price-ads", async (req, reply) => {
+  const hours = req.query.hours || 168;
+  try {
+    const res = await fetch(
+      `${ANALYTICS_SERVICE_URL}/no-price-ads?hours=${hours}`
+    );
+    if (!res.ok) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai پاسخ درستی نداد" };
+    }
+    return await res.json();
+  } catch (err) {
+    reply.code(502);
+    return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+  }
+});
+
 fastify.get("/api/car-ads-channel-preview", async (req, reply) => {
   const username = req.query.username;
   if (!username) {

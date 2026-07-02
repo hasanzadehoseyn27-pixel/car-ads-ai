@@ -91,7 +91,8 @@ def get_price_analytics(hours: int = 24) -> list[dict]:
     توجه: فقط آگهی‌های ad_type='for_sale' حساب می‌شوند — آگهی‌های «خریدارم»
     (wanted_to_buy) با اینکه در دیتابیس ذخیره می‌مانند، از این تجمیع کنار
     گذاشته می‌شوند، چون «بودجه‌ی پیشنهادی خریدار» قیمت فروش واقعی نیست و
-    می‌تواند min/avg/max را گمراه‌کننده کند.
+    می‌تواند min/avg/max را گمراه‌کننده کند. این آگهی‌ها جداگانه با
+    get_wanted_ads قابل دیدن هستند.
 
     توجه: car_name همان متنی است که AI استخراج کرده (مثلاً «کیا سراتو»).
     اگه یک مدل با چند املای متفاوت استخراج شده باشد (مثلاً «سراتو» و
@@ -250,6 +251,77 @@ def get_daily_lowest_prices() -> list[dict]:
 
     result = list(best_by_model.values())
     result.sort(key=lambda x: x["car_name"])
+    return result
+
+
+def get_wanted_ads(hours: int = 168) -> list[dict]:
+    """
+    آگهی‌های «خریدارم» (ad_type='wanted_to_buy') — این‌ها در get_price_analytics
+    و get_daily_lowest_prices عمداً کنار گذاشته می‌شوند چون قیمت پیشنهادی
+    خریدار نیست، ولی خودشان به‌عنوان یک لیست جداگانه در داشبورد قابل مشاهده‌اند.
+
+    پیش‌فرض hours=168 (یک هفته) گذاشته شده چون تعداد این آگهی‌ها معمولاً کم
+    است و محدودشان‌کردن به ۲۴ ساعت ممکن است خیلی خالی به‌نظر برسد؛ در عمل
+    چون دیتابیس هر شب پاک می‌شود، این عدد صرفاً یک سقف بی‌ضرر است.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM car_ads
+            WHERE COALESCE(telegram_date, created_at) >= ?
+              AND ad_type = 'wanted_to_buy'
+            ORDER BY COALESCE(telegram_date, created_at) DESC
+            """,
+            (cutoff,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    result = []
+    for row in rows:
+        item = dict(row)
+        item["telegram_link"] = f"https://t.me/{item['channel']}/{item['message_id']}"
+        result.append(item)
+    return result
+
+
+def get_no_price_ads(hours: int = 168) -> list[dict]:
+    """
+    آگهی‌های فروش (ad_type='for_sale') که هیچ قیمتی برایشان استخراج نشده
+    (price_amount IS NULL) — این آگهی‌ها در get_price_analytics/
+    get_daily_lowest_prices در محاسبه‌ی min/avg/max اثر ندارند، ولی برای
+    بررسی دستی (شاید فروشنده تماس بگیرید برای قیمت) به‌صورت لیست جدا نمایش
+    داده می‌شوند.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM car_ads
+            WHERE COALESCE(telegram_date, created_at) >= ?
+              AND ad_type = 'for_sale'
+              AND price_amount IS NULL
+            ORDER BY COALESCE(telegram_date, created_at) DESC
+            """,
+            (cutoff,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    result = []
+    for row in rows:
+        item = dict(row)
+        item["telegram_link"] = f"https://t.me/{item['channel']}/{item['message_id']}"
+        result.append(item)
     return result
 
 
