@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>گزارش روزانه — کمترین قیمت‌ها</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+      :root {
+        --bg: #0b1320;
+        --card: #141f33;
+        --card-border: #263248;
+        --header-bg: #0f3d3a;
+        --accent: #2dd4bf;
+        --accent-bright: #5eead4;
+        --text: #e7ecf3;
+        --text-dim: #93a1b8;
+        --text-faint: #5c6b85;
+        --radius-lg: 14px;
+        --radius-sm: 7px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        background-image: radial-gradient(
+          circle at 15% 0%,
+          rgba(45, 212, 191, 0.07),
+          transparent 45%
+        );
+        color: var(--text);
+        font-family: "Vazirmatn", Tahoma, sans-serif;
+        padding: 28px 32px 60px;
+        margin: 0;
+      }
+      .page-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 22px;
+      }
+      h1 {
+        color: var(--accent-bright);
+        font-size: 21px;
+        font-weight: 700;
+        margin: 0;
+      }
+      .back-link {
+        color: var(--text-dim);
+        font-size: 13.5px;
+        text-decoration: none;
+        margin-inline-start: auto;
+      }
+      .back-link:hover {
+        color: var(--text);
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+      .result-count {
+        font-size: 13px;
+        color: var(--text-faint);
+      }
+      input[type="text"] {
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-sm);
+        padding: 7px 12px;
+        font-family: inherit;
+        font-size: 13.5px;
+        outline: none;
+        min-width: 260px;
+      }
+      input[type="text"]:focus {
+        border-color: var(--accent);
+      }
+      button {
+        background: var(--header-bg);
+        color: var(--accent-bright);
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-sm);
+        padding: 8px 16px;
+        font-family: inherit;
+        font-size: 13.5px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      button:hover {
+        background: #115049;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
+          0 8px 24px -12px rgba(0, 0, 0, 0.5);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+      }
+      th,
+      td {
+        padding: 12px 16px;
+        text-align: right;
+        border-bottom: 1px solid var(--card-border);
+        font-size: 13.5px;
+      }
+      th {
+        background: var(--header-bg);
+        color: var(--accent-bright);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      th.row-num,
+      td.row-num {
+        text-align: center;
+        color: var(--text-faint);
+        width: 36px;
+      }
+      tbody tr:hover {
+        background: #1b2a45;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      td.empty-cell {
+        text-align: center;
+        color: var(--text-faint);
+        padding: 32px 0;
+      }
+      .ad-link {
+        color: var(--accent-bright);
+        font-size: 12.5px;
+        text-decoration: none;
+      }
+      .ad-link:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-header">
+      <h1>📊 گزارش روزانه — کمترین قیمت هر مدل</h1>
+      <a href="/" class="back-link">← بازگشت به داشبورد</a>
+    </div>
+
+    <div class="toolbar">
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="جستجوی مدل خودرو..."
+        oninput="renderTable()"
+      />
+      <div style="display: flex; gap: 8px; align-items: center">
+        <span class="result-count" id="resultCount"></span>
+        <button onclick="downloadExcel()">⬇️ دانلود اکسل</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <table id="reportTable">
+        <thead>
+          <tr>
+            <th class="row-num">ردیف</th>
+            <th>مدل خودرو</th>
+            <th>کمترین قیمت</th>
+            <th>مشاهده در تلگرام</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <script>
+      let allData = [];
+
+      function formatToman(amount) {
+        if (amount === null || amount === undefined) return "—";
+        return amount.toLocaleString("fa-IR") + " تومان";
+      }
+
+      async function load() {
+        const tbody = document.querySelector("#reportTable tbody");
+        try {
+          const res = await fetch("/api/car-ads-daily-report");
+          const json = await res.json();
+          if (json.error) {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty-cell">❌ ${json.error}</td></tr>`;
+            return;
+          }
+          allData = json.data || [];
+          renderTable();
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="4" class="empty-cell">❌ خطا در دریافت اطلاعات: ${err.message}</td></tr>`;
+        }
+      }
+
+      function getFiltered() {
+        const q = document
+          .getElementById("searchInput")
+          .value.trim()
+          .toLowerCase();
+        if (!q) return allData;
+        return allData.filter((item) =>
+          item.car_name.toLowerCase().includes(q)
+        );
+      }
+
+      function renderTable() {
+        const tbody = document.querySelector("#reportTable tbody");
+        const filtered = getFiltered();
+        tbody.innerHTML = "";
+
+        if (filtered.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="empty-cell">نتیجه‌ای پیدا نشد</td></tr>`;
+        } else {
+          filtered.forEach((item, i) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+            <td class="row-num">${(i + 1).toLocaleString("fa-IR")}</td>
+            <td>${item.car_name}</td>
+            <td>${formatToman(item.min_price)}</td>
+            <td>${
+              item.telegram_link
+                ? `<a href="${item.telegram_link}" target="_blank" rel="noopener" class="ad-link">مشاهده ↗</a>`
+                : "—"
+            }</td>
+          `;
+            tbody.appendChild(tr);
+          });
+        }
+
+        document.getElementById("resultCount").textContent =
+          filtered.length > 0
+            ? `${filtered.length.toLocaleString("fa-IR")} مدل`
+            : "";
+      }
+
+      function downloadExcel() {
+        const filtered = getFiltered();
+        const rows = filtered.map((item) => ({
+          "مدل خودرو": item.car_name,
+          "کمترین قیمت (تومان)": item.min_price ?? "",
+          "لینک تلگرام": item.telegram_link || "",
+        }));
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "گزارش روزانه");
+
+        const today = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(workbook, `گزارش-قیمت-${today}.xlsx`);
+      }
+
+      load();
+    </script>
+  </body>
+</html>

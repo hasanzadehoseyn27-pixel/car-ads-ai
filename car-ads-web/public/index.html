@@ -1,563 +1,1383 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>تحلیل قیمت آگهی‌های خودرو</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<style>
-  :root {
-    --bg: #0b1320;
-    --card: #141f33;
-    --card-border: #263248;
-    --header-bg: #0f3d3a;
-    --accent: #2dd4bf;
-    --accent-bright: #5eead4;
-    --text: #e7ecf3;
-    --text-dim: #93a1b8;
-    --text-faint: #5c6b85;
-    --danger: #fca5a5;
-    --radius-lg: 14px;
-    --radius-md: 10px;
-    --radius-sm: 7px;
-  }
-
-  * { box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    background-image: radial-gradient(circle at 15% 0%, rgba(45, 212, 191, 0.07), transparent 45%);
-    color: var(--text);
-    font-family: "Vazirmatn", Tahoma, sans-serif;
-    padding: 28px 32px 60px;
-    margin: 0;
-  }
-
-  .page-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 22px;
-  }
-  .icon-btn {
-    margin-inline-start: auto;
-    width: 34px;
-    height: 34px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    border-radius: 999px;
-  }
-  select {
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-sm);
-    padding: 7px 12px;
-    font-family: inherit;
-    font-size: 13.5px;
-    outline: none;
-    width: 100%;
-  }
-  select:focus { border-color: var(--accent); }
-  .settings-field label {
-    display: block;
-    margin-bottom: 8px;
-    font-size: 13px;
-    color: var(--text-dim);
-  }
-  .settings-body { padding: 18px 20px; }
-  h1 {
-    color: var(--accent-bright);
-    font-size: 21px;
-    font-weight: 700;
-    margin: 0;
-    letter-spacing: 0.2px;
-  }
-  .live-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent);
-    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.6);
-    animation: pulse 2.2s infinite;
-    flex-shrink: 0;
-  }
-  @keyframes pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.55); }
-    70%  { box-shadow: 0 0 0 7px rgba(45, 212, 191, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0); }
-  }
-
-  h3 {
-    color: var(--accent-bright);
-    font-size: 14px;
-    font-weight: 600;
-    margin: 0 0 12px;
-  }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.5);
-  }
-
-  .toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 14px;
-  }
-  .result-count {
-    font-size: 13px;
-    color: var(--text-faint);
-  }
-
-  /* پنل افزودن کانال */
-  .channels-panel {
-    padding: 16px 18px;
-    margin-bottom: 22px;
-  }
-  .channel-add-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .channel-add-row input { max-width: 240px; }
-  .channel-preview {
-    font-size: 13px;
-    color: var(--text-faint);
-    min-width: 140px;
-    transition: color 0.15s;
-  }
-  .channel-preview.loading { color: var(--text-dim); }
-  .channel-preview.found { color: #6ee7b7; }
-  .channel-preview.not-found { color: var(--danger); }
-
-  .channel-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    background: var(--bg);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-md);
-    padding: 10px 14px;
-    margin-bottom: 8px;
-  }
-  .channel-row .channel-name { font-size: 14px; }
-  .channel-status {
-    font-size: 11px;
-    padding: 2px 9px;
-    border-radius: 999px;
-    font-weight: 500;
-  }
-  .channel-status.active { background: #064e3b; color: #6ee7b7; }
-  .channel-status.inactive { background: #3f1d1d; color: var(--danger); }
-
-  /* جدول */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-  }
-  th, td {
-    padding: 12px 16px;
-    text-align: right;
-    border-bottom: 1px solid var(--card-border);
-    font-size: 13.5px;
-  }
-  th {
-    background: var(--header-bg);
-    color: var(--accent-bright);
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.2px;
-  }
-  th.row-num, td.row-num {
-    text-align: center;
-    color: var(--text-faint);
-    width: 36px;
-  }
-  tbody tr { cursor: pointer; transition: background 0.12s; }
-  tbody tr:hover { background: #1b2a45; }
-  tbody tr:last-child td { border-bottom: none; }
-  td.empty-cell {
-    text-align: center;
-    color: var(--text-faint);
-    padding: 32px 0;
-    cursor: default;
-  }
-  .no-price { color: var(--text-faint); }
-
-  /* صفحه‌بندی */
-  .pagination {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 14px;
-    padding: 0 4px;
-  }
-  .pagination-info {
-    font-size: 12.5px;
-    color: var(--text-faint);
-  }
-  .pagination-buttons {
-    display: flex;
-    gap: 8px;
-  }
-  .pagination-buttons button {
-    padding: 5px 14px;
-    font-size: 13px;
-  }
-  .pagination-buttons button:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-  }
-
-  input[type="text"] {
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-sm);
-    padding: 7px 12px;
-    font-family: inherit;
-    font-size: 13.5px;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  input[type="text"]:focus { border-color: var(--accent); }
-  .toolbar input[type="text"] { min-width: 260px; }
-
-  button {
-    background: var(--header-bg);
-    color: var(--accent-bright);
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-sm);
-    padding: 7px 14px;
-    font-family: inherit;
-    font-size: 13.5px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s, transform 0.1s;
-  }
-  button:hover:not(:disabled) { background: #115049; }
-  button:active:not(:disabled) { transform: scale(0.97); }
-
-  /* مدال‌ها */
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(5, 9, 16, 0.72);
-    backdrop-filter: blur(2px);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 50;
-    padding: 20px;
-  }
-  .modal-box {
-    background: var(--bg);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-lg);
-    width: 100%;
-    max-width: 720px;
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
-    animation: modal-in 0.16s ease-out;
-  }
-  @keyframes modal-in {
-    from { opacity: 0; transform: scale(0.97) translateY(4px); }
-    to   { opacity: 1; transform: scale(1) translateY(0); }
-  }
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--card-border);
-  }
-  .modal-header h2 {
-    margin: 0;
-    color: var(--accent-bright);
-    font-size: 16.5px;
-    font-weight: 700;
-  }
-  .modal-header button {
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    font-size: 13px;
-    padding: 4px 8px;
-  }
-  .modal-header button:hover:not(:disabled) { background: none; color: var(--text); }
-  .modal-search-area {
-    padding: 12px 20px;
-    border-bottom: 1px solid var(--card-border);
-  }
-  .modal-search-area input { width: 100%; }
-  #modalMeta {
-    padding: 8px 20px;
-    color: var(--text-dim);
-    font-size: 12.5px;
-  }
-  #modalList, #channelsModalList {
-    overflow-y: auto;
-    padding: 14px 20px;
-    flex: 1;
-  }
-  .ad-card {
-    background: var(--card);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-md);
-    padding: 13px 15px;
-    margin-bottom: 10px;
-  }
-  .ad-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 7px;
-  }
-  .price-group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .price-group strong { font-size: 14.5px; }
-  .price-badge {
-    font-size: 11px;
-    padding: 2px 9px;
-    border-radius: 999px;
-    white-space: nowrap;
-    font-weight: 500;
-  }
-  .price-badge.min { background: #064e3b; color: #6ee7b7; }
-  .price-badge.max { background: #7c2d12; color: #fdba74; }
-  .price-badge.equal { background: #1e3a8a; color: #93c5fd; }
-  .ad-link {
-    color: var(--accent-bright);
-    font-size: 12.5px;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-  .ad-link:hover { text-decoration: underline; }
-  .ad-details { color: var(--text-dim); font-size: 13px; margin-bottom: 4px; }
-  .ad-phone { font-size: 13px; margin-bottom: 4px; }
-  .ad-notes { color: #cbd5e1; font-size: 13px; margin-bottom: 7px; }
-  .ad-text {
-    background: var(--bg);
-    border-radius: var(--radius-sm);
-    padding: 9px 11px;
-    font-size: 13px;
-    color: #cbd5e1;
-    white-space: pre-wrap;
-    margin-bottom: 7px;
-    line-height: 1.6;
-  }
-  .ad-date { color: var(--text-faint); font-size: 11px; text-align: left; }
-  .empty { color: var(--text-faint); text-align: center; padding: 34px 0; font-size: 13.5px; }
-</style>
-</head>
-<body>
-  <div class="page-header">
-    <h1>تحلیل قیمت آگهی‌های خودرو</h1>
-    <span class="live-dot" id="liveDot" title="بروزرسانی خودکار"></span>
-    <button class="icon-btn" onclick="openSettingsModal()" title="تنظیمات" aria-label="تنظیمات">⚙️</button>
-  </div>
-
-  <div class="card channels-panel">
-    <h3>مدیریت کانال‌ها</h3>
-    <div class="channel-add-row">
-      <input type="text" id="newChannelInput" placeholder="نام کاربری کانال (بدون @)" oninput="onChannelInputChange()" />
-      <span id="channelPreview" class="channel-preview"></span>
-      <button onclick="addChannel()">افزودن</button>
-      <button onclick="openChannelsModal()">لیست کانال‌ها</button>
-    </div>
-  </div>
-
-  <div class="toolbar">
-    <input type="text" id="searchTable" placeholder="جستجوی مدل خودرو..." oninput="onSearchInput()" />
-    <span class="result-count" id="resultCount"></span>
-  </div>
-
-  <div class="card">
-    <table id="result">
-      <thead>
-        <tr>
-          <th class="row-num">ردیف</th>
-          <th>مدل خودرو</th>
-          <th>تعداد کل آگهی</th>
-          <th>آگهی با قیمت</th>
-          <th>حداقل قیمت</th>
-          <th>میانگین قیمت</th>
-          <th>حداکثر قیمت</th>
-          <th>آخرین آگهی</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-
-  <div class="pagination" id="pagination"></div>
-
-  <!-- مدال جزئیات هر مدل خودرو -->
-  <div id="modalOverlay" class="modal-overlay" onclick="closeModalOnOverlay(event)">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h2 id="modalTitle"></h2>
-        <button onclick="closeModal()">✕ بستن</button>
-      </div>
-      <div class="modal-search-area">
-        <input type="text" id="searchModal" placeholder="جستجو در آگهی‌ها (تلفن، رنگ، توضیحات، متن پیام...)" oninput="filterModalAds()" />
-      </div>
-      <div id="modalMeta"></div>
-      <div id="modalList"></div>
-    </div>
-  </div>
-
-  <!-- مدال لیست کانال‌ها -->
-  <div id="channelsModalOverlay" class="modal-overlay" onclick="closeChannelsModalOnOverlay(event)">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h2>لیست کانال‌ها</h2>
-        <button onclick="closeChannelsModal()">✕ بستن</button>
-      </div>
-      <div class="modal-search-area">
-        <input type="text" id="searchChannelsModal" placeholder="جستجوی کانال..." oninput="filterChannelsModal()" />
-      </div>
-      <div id="channelsModalList"></div>
-    </div>
-  </div>
-
-  <!-- مدال تنظیمات -->
-  <div id="settingsModalOverlay" class="modal-overlay" onclick="closeSettingsModalOnOverlay(event)">
-    <div class="modal-box" style="max-width: 420px;">
-      <div class="modal-header">
-        <h2>تنظیمات</h2>
-        <button onclick="closeSettingsModal()">✕ بستن</button>
-      </div>
-      <div class="settings-body">
-        <div class="settings-field">
-          <label for="refreshIntervalSelect">فاصله‌ی هر درخواست به سرور (بروزرسانی خودکار جدول)</label>
-          <select id="refreshIntervalSelect" onchange="onRefreshIntervalChange()">
-            <option value="10000">۱۰ ثانیه (پیش‌فرض)</option>
-            <option value="15000">۱۵ ثانیه</option>
-            <option value="20000">۲۰ ثانیه</option>
-            <option value="30000">۳۰ ثانیه</option>
-            <option value="45000">۴۵ ثانیه</option>
-            <option value="60000">۱ دقیقه</option>
-          </select>
-        </div>
-        <div class="settings-field" style="margin-top: 16px;">
-          <label for="aiRateLimitSelect">فاصله‌ی هر درخواست به هوش مصنوعی (برای جلوگیری از بلاک‌شدن)</label>
-          <select id="aiRateLimitSelect" onchange="onAiRateLimitChange()">
-            <option value="10">۱۰ ثانیه (پیش‌فرض)</option>
-            <option value="15">۱۵ ثانیه</option>
-            <option value="20">۲۰ ثانیه</option>
-            <option value="30">۳۰ ثانیه</option>
-            <option value="45">۴۵ ثانیه</option>
-            <option value="60">۱ دقیقه</option>
-          </select>
-          <div id="aiRateLimitStatus" style="font-size:12px; color: var(--text-faint); margin-top:6px;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const REFRESH_INTERVAL_STORAGE_KEY = "carAdsRefreshIntervalMs";
-    const DEFAULT_REFRESH_INTERVAL_MS = 10000; // پیش‌فرض: هر ۱۰ ثانیه
-    const CHANNEL_PREVIEW_DEBOUNCE_MS = 450;
-    const ROWS_PER_PAGE = 10;
-
-    let REFRESH_INTERVAL_MS = parseInt(localStorage.getItem(REFRESH_INTERVAL_STORAGE_KEY), 10) || DEFAULT_REFRESH_INTERVAL_MS;
-    let refreshTimer = null;
-
-    let allAnalyticsData = [];
-    let currentPage = 1;
-
-    let currentModalAds = [];
-    let modalOpenCarName = null;
-    let modalOpenTrim = null; // null یعنی گروه «بدون تیپ مشخص»
-    let allChannels = [];
-    let channelPreviewTimeout = null;
-
-    function formatToman(amount) {
-      if (amount === null || amount === undefined) return '<span class="no-price">—</span>';
-      return amount.toLocaleString("fa-IR") + " تومان";
-    }
-
-    function formatDate(iso) {
-      try {
-        return new Date(iso).toLocaleString("fa-IR");
-      } catch {
-        return iso;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>تحلیل قیمت آگهی‌های خودرو</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0b1320;
+        --card: #141f33;
+        --card-border: #263248;
+        --header-bg: #0f3d3a;
+        --accent: #2dd4bf;
+        --accent-bright: #5eead4;
+        --text: #e7ecf3;
+        --text-dim: #93a1b8;
+        --text-faint: #5c6b85;
+        --danger: #fca5a5;
+        --radius-lg: 14px;
+        --radius-md: 10px;
+        --radius-sm: 7px;
       }
-    }
 
-    // ---------- جدول قیمت‌ها (با صفحه‌بندی) ----------
+      * {
+        box-sizing: border-box;
+      }
 
-    async function load() {
-      const tbody = document.querySelector("#result tbody");
+      body {
+        background: var(--bg);
+        background-image: radial-gradient(
+          circle at 15% 0%,
+          rgba(45, 212, 191, 0.07),
+          transparent 45%
+        );
+        color: var(--text);
+        font-family: "Vazirmatn", Tahoma, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
 
-      try {
-        const res = await fetch(`/api/car-ads-analytics`);
-        const json = await res.json();
+      .page-layout {
+        display: flex;
+        align-items: flex-start;
+        gap: 24px;
+        padding: 28px 32px 60px;
+      }
 
-        if (json.error) {
-          tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">❌ ${json.error}</td></tr>`;
+      .main-content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      /* سایدبار فیلتر */
+      .sidebar {
+        width: 260px;
+        flex-shrink: 0;
+        position: sticky;
+        top: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .sidebar-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+        padding: 16px 16px;
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
+          0 8px 24px -12px rgba(0, 0, 0, 0.5);
+      }
+      .sidebar-card h4 {
+        margin: 0 0 12px;
+        font-size: 13.5px;
+        font-weight: 700;
+        color: var(--accent-bright);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .price-range-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .price-range-row input[type="number"] {
+        width: 100%;
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-sm);
+        padding: 7px 10px;
+        font-family: inherit;
+        font-size: 13px;
+        outline: none;
+        min-width: 0;
+      }
+      .price-range-row input[type="number"]:focus {
+        border-color: var(--accent);
+      }
+      .price-range-row span {
+        color: var(--text-faint);
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .price-range-hint {
+        font-size: 11.5px;
+        color: var(--text-faint);
+        margin-top: 6px;
+      }
+      .model-search-box {
+        width: 100%;
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-sm);
+        padding: 7px 10px;
+        font-family: inherit;
+        font-size: 13px;
+        outline: none;
+        margin-bottom: 10px;
+      }
+      .model-search-box:focus {
+        border-color: var(--accent);
+      }
+      .model-checkbox-list {
+        max-height: 260px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .model-checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 6px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-size: 13px;
+        transition: background 0.12s;
+      }
+      .model-checkbox-item:hover {
+        background: #1b2a45;
+      }
+      .model-checkbox-item input[type="checkbox"] {
+        flex-shrink: 0;
+        accent-color: var(--accent);
+        width: 15px;
+        height: 15px;
+        cursor: pointer;
+      }
+      .model-checkbox-item label {
+        cursor: pointer;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .model-checkbox-empty {
+        color: var(--text-faint);
+        font-size: 12.5px;
+        text-align: center;
+        padding: 14px 0;
+      }
+      .sidebar-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .sidebar-actions button {
+        flex: 1;
+        font-size: 12.5px;
+        padding: 7px 10px;
+      }
+
+      .page-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+      .icon-btn {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        border-radius: 999px;
+        position: relative;
+      }
+      .header-actions {
+        margin-inline-start: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .bell-badge {
+        position: absolute;
+        top: -4px;
+        left: -4px;
+        background: var(--danger);
+        color: #3a0a0a;
+        font-size: 10px;
+        font-weight: 700;
+        border-radius: 999px;
+        min-width: 17px;
+        height: 17px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        border: 1px solid var(--bg);
+      }
+      .bell-btn.has-unseen {
+        animation: bell-pulse 1.6s infinite;
+      }
+      @keyframes bell-pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(252, 165, 165, 0.5);
+        }
+        70% {
+          box-shadow: 0 0 0 8px rgba(252, 165, 165, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(252, 165, 165, 0);
+        }
+      }
+      select {
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-sm);
+        padding: 7px 12px;
+        font-family: inherit;
+        font-size: 13.5px;
+        outline: none;
+        width: 100%;
+      }
+      select:focus {
+        border-color: var(--accent);
+      }
+      .settings-field label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 13px;
+        color: var(--text-dim);
+      }
+      .settings-body {
+        padding: 18px 20px;
+      }
+      h1 {
+        color: var(--accent-bright);
+        font-size: 21px;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: 0.2px;
+      }
+      .live-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.6);
+        animation: pulse 2.2s infinite;
+        flex-shrink: 0;
+      }
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.55);
+        }
+        70% {
+          box-shadow: 0 0 0 7px rgba(45, 212, 191, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(45, 212, 191, 0);
+        }
+      }
+
+      /* ساعت/تاریخ زنده وسط بالای صفحه */
+      .live-clock-wrap {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 22px;
+      }
+      .live-clock {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 999px;
+        padding: 9px 22px;
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
+          0 8px 24px -12px rgba(0, 0, 0, 0.5);
+      }
+      .live-clock .clock-time {
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--accent-bright);
+        letter-spacing: 0.5px;
+        font-variant-numeric: tabular-nums;
+        direction: ltr;
+      }
+      .live-clock .clock-sep {
+        width: 1px;
+        height: 18px;
+        background: var(--card-border);
+      }
+      .live-clock .clock-date {
+        font-size: 13.5px;
+        color: var(--text-dim);
+        font-weight: 500;
+      }
+
+      h3 {
+        color: var(--accent-bright);
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0 0 12px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
+          0 8px 24px -12px rgba(0, 0, 0, 0.5);
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+      .result-count {
+        font-size: 13px;
+        color: var(--text-faint);
+      }
+
+      /* پنل افزودن کانال */
+      .channels-panel {
+        padding: 16px 18px;
+        margin-bottom: 22px;
+      }
+      .channel-add-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .channel-add-row input {
+        max-width: 240px;
+      }
+      .channel-preview {
+        font-size: 13px;
+        color: var(--text-faint);
+        min-width: 140px;
+        transition: color 0.15s;
+      }
+      .channel-preview.loading {
+        color: var(--text-dim);
+      }
+      .channel-preview.found {
+        color: #6ee7b7;
+      }
+      .channel-preview.not-found {
+        color: var(--danger);
+      }
+
+      .channel-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        background: var(--bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-md);
+        padding: 10px 14px;
+        margin-bottom: 8px;
+      }
+      .channel-row .channel-name {
+        font-size: 14px;
+      }
+      .channel-status {
+        font-size: 11px;
+        padding: 2px 9px;
+        border-radius: 999px;
+        font-weight: 500;
+      }
+      .channel-status.active {
+        background: #064e3b;
+        color: #6ee7b7;
+      }
+      .channel-status.inactive {
+        background: #3f1d1d;
+        color: var(--danger);
+      }
+
+      /* جدول */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+      }
+      th,
+      td {
+        padding: 12px 16px;
+        text-align: right;
+        border-bottom: 1px solid var(--card-border);
+        font-size: 13.5px;
+      }
+      th {
+        background: var(--header-bg);
+        color: var(--accent-bright);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+      th.row-num,
+      td.row-num {
+        text-align: center;
+        color: var(--text-faint);
+        width: 36px;
+      }
+      tbody tr {
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+      tbody tr:hover {
+        background: #1b2a45;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      td.empty-cell {
+        text-align: center;
+        color: var(--text-faint);
+        padding: 32px 0;
+        cursor: default;
+      }
+      .no-price {
+        color: var(--text-faint);
+      }
+
+      /* صفحه‌بندی */
+      .pagination {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 14px;
+        padding: 0 4px;
+      }
+      .pagination-info {
+        font-size: 12.5px;
+        color: var(--text-faint);
+      }
+      .pagination-buttons {
+        display: flex;
+        gap: 8px;
+      }
+      .pagination-buttons button {
+        padding: 5px 14px;
+        font-size: 13px;
+      }
+      .pagination-buttons button:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+
+      input[type="text"] {
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-sm);
+        padding: 7px 12px;
+        font-family: inherit;
+        font-size: 13.5px;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      input[type="text"]:focus {
+        border-color: var(--accent);
+      }
+      .toolbar input[type="text"] {
+        min-width: 260px;
+      }
+
+      button {
+        background: var(--header-bg);
+        color: var(--accent-bright);
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-sm);
+        padding: 7px 14px;
+        font-family: inherit;
+        font-size: 13.5px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s, transform 0.1s;
+      }
+      button:hover:not(:disabled) {
+        background: #115049;
+      }
+      button:active:not(:disabled) {
+        transform: scale(0.97);
+      }
+      button.secondary {
+        background: transparent;
+        color: var(--text-dim);
+        border-color: var(--card-border);
+      }
+      button.secondary:hover:not(:disabled) {
+        background: #1b2a45;
+        color: var(--text);
+      }
+      button.danger-outline {
+        background: transparent;
+        color: var(--danger);
+        border-color: var(--danger);
+      }
+      button.danger-outline:hover:not(:disabled) {
+        background: #3f1d1d;
+      }
+
+      /* مدال‌ها */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 9, 16, 0.72);
+        backdrop-filter: blur(2px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+        padding: 20px;
+      }
+      .modal-box {
+        background: var(--bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+        width: 100%;
+        max-width: 720px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+        animation: modal-in 0.16s ease-out;
+      }
+      @keyframes modal-in {
+        from {
+          opacity: 0;
+          transform: scale(0.97) translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--card-border);
+      }
+      .modal-header h2 {
+        margin: 0;
+        color: var(--accent-bright);
+        font-size: 16.5px;
+        font-weight: 700;
+      }
+      .modal-header button {
+        background: none;
+        border: none;
+        color: var(--text-dim);
+        font-size: 13px;
+        padding: 4px 8px;
+      }
+      .modal-header button:hover:not(:disabled) {
+        background: none;
+        color: var(--text);
+      }
+      .modal-search-area {
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--card-border);
+      }
+      .modal-search-area input {
+        width: 100%;
+      }
+      #modalMeta {
+        padding: 8px 20px;
+        color: var(--text-dim);
+        font-size: 12.5px;
+      }
+      #modalList,
+      #channelsModalList,
+      #alertMatchesList {
+        overflow-y: auto;
+        padding: 14px 20px;
+        flex: 1;
+      }
+      .ad-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-md);
+        padding: 13px 15px;
+        margin-bottom: 10px;
+      }
+      .ad-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 7px;
+      }
+      .price-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .price-group strong {
+        font-size: 14.5px;
+      }
+      .price-badge {
+        font-size: 11px;
+        padding: 2px 9px;
+        border-radius: 999px;
+        white-space: nowrap;
+        font-weight: 500;
+      }
+      .price-badge.min {
+        background: #064e3b;
+        color: #6ee7b7;
+      }
+      .price-badge.max {
+        background: #7c2d12;
+        color: #fdba74;
+      }
+      .price-badge.equal {
+        background: #1e3a8a;
+        color: #93c5fd;
+      }
+      .ad-link {
+        color: var(--accent-bright);
+        font-size: 12.5px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .ad-link:hover {
+        text-decoration: underline;
+      }
+      .ad-details {
+        color: var(--text-dim);
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+      .ad-phone {
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+      .ad-notes {
+        color: #cbd5e1;
+        font-size: 13px;
+        margin-bottom: 7px;
+      }
+      .ad-text {
+        background: var(--bg);
+        border-radius: var(--radius-sm);
+        padding: 9px 11px;
+        font-size: 13px;
+        color: #cbd5e1;
+        white-space: pre-wrap;
+        margin-bottom: 7px;
+        line-height: 1.6;
+      }
+      .ad-date {
+        color: var(--text-faint);
+        font-size: 11px;
+        text-align: left;
+      }
+      .empty {
+        color: var(--text-faint);
+        text-align: center;
+        padding: 34px 0;
+        font-size: 13.5px;
+      }
+
+      /* مدال هشدارهای قیمت */
+      .alerts-form {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--card-border);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .alerts-form-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .alerts-form-row select,
+      .alerts-form-row input {
+        flex: 1;
+      }
+      .alerts-form-hint {
+        font-size: 11.5px;
+        color: var(--text-faint);
+      }
+      .alerts-form-error {
+        font-size: 12px;
+        color: var(--danger);
+        min-height: 16px;
+      }
+      #alertRulesList {
+        overflow-y: auto;
+        padding: 14px 20px;
+        flex: 1;
+      }
+      .alert-rule-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-md);
+        padding: 11px 14px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+      .alert-rule-info {
+        font-size: 13px;
+      }
+      .alert-rule-info .rule-car-name {
+        font-weight: 700;
+        color: var(--accent-bright);
+      }
+      .alert-rule-info .rule-range {
+        color: var(--text-dim);
+        font-size: 12.5px;
+        margin-top: 3px;
+      }
+      .match-car-name {
+        font-weight: 700;
+        color: var(--accent-bright);
+        font-size: 14px;
+      }
+      .match-price {
+        font-size: 13.5px;
+        margin-top: 4px;
+      }
+      .match-rule-info {
+        font-size: 11.5px;
+        color: var(--text-faint);
+        margin-top: 4px;
+      }
+
+      /* واکنش‌گرا: زیر ۹۶۰ پیکسل سایدبار می‌رود بالای محتوا و ثابت نمی‌ماند */
+      @media (max-width: 960px) {
+        .page-layout {
+          flex-direction: column;
+        }
+        .sidebar {
+          width: 100%;
+          position: static;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-layout">
+      <aside class="sidebar">
+        <div class="sidebar-card">
+          <h4>💰 فیلتر قیمت (میلیون تومان)</h4>
+          <div class="price-range-row">
+            <input
+              type="number"
+              id="filterPriceMin"
+              placeholder="از"
+              min="0"
+              oninput="onFilterChange()"
+            />
+            <span>تا</span>
+            <input
+              type="number"
+              id="filterPriceMax"
+              placeholder="تا"
+              min="0"
+              oninput="onFilterChange()"
+            />
+          </div>
+          <div class="price-range-hint">مثلاً از ۳۰۰ تا ۶۰۰ (میلیون تومان)</div>
+        </div>
+
+        <div class="sidebar-card">
+          <h4>🚗 فیلتر مدل خودرو</h4>
+          <input
+            type="text"
+            id="modelSearchBox"
+            class="model-search-box"
+            placeholder="جستجوی نام مدل..."
+            oninput="renderModelCheckboxList()"
+          />
+          <div class="model-checkbox-list" id="modelCheckboxList"></div>
+          <div class="sidebar-actions">
+            <button class="secondary" onclick="clearAllFilters()">
+              پاک‌کردن همه
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <div class="main-content">
+        <div class="page-header">
+          <h1>تحلیل قیمت آگهی‌های خودرو</h1>
+          <span class="live-dot" id="liveDot" title="بروزرسانی خودکار"></span>
+          <div class="header-actions">
+            <button
+              class="icon-btn bell-btn"
+              id="bellBtn"
+              onclick="openAlertsModal()"
+              title="هشدارهای قیمت"
+              aria-label="هشدارهای قیمت"
+            >
+              🔔
+              <span class="bell-badge" id="bellBadge" style="display: none"
+                >0</span
+              >
+            </button>
+            <button
+              class="icon-btn"
+              onclick="openSettingsModal()"
+              title="تنظیمات"
+              aria-label="تنظیمات"
+            >
+              ⚙️
+            </button>
+          </div>
+        </div>
+
+        <div class="live-clock-wrap">
+          <div class="live-clock">
+            <span class="clock-time" id="liveClockTime">--:--:--</span>
+            <span class="clock-sep"></span>
+            <span class="clock-date" id="liveClockDate"
+              >در حال بارگذاری تاریخ...</span
+            >
+          </div>
+        </div>
+
+        <div class="card channels-panel">
+          <h3>مدیریت کانال‌ها</h3>
+          <div class="channel-add-row">
+            <input
+              type="text"
+              id="newChannelInput"
+              placeholder="نام کاربری کانال (بدون @)"
+              oninput="onChannelInputChange()"
+            />
+            <span id="channelPreview" class="channel-preview"></span>
+            <button onclick="addChannel()">افزودن</button>
+            <button onclick="openChannelsModal()">لیست کانال‌ها</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <input
+            type="text"
+            id="searchTable"
+            placeholder="جستجوی مدل خودرو..."
+            oninput="onSearchInput()"
+          />
+          <span class="result-count" id="resultCount"></span>
+        </div>
+
+        <div class="card">
+          <table id="result">
+            <thead>
+              <tr>
+                <th class="row-num">ردیف</th>
+                <th>مدل خودرو</th>
+                <th>تعداد کل آگهی</th>
+                <th>آگهی با قیمت</th>
+                <th>حداقل قیمت</th>
+                <th>میانگین قیمت</th>
+                <th>حداکثر قیمت</th>
+                <th>آخرین آگهی</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+
+    <!-- مدال جزئیات هر مدل خودرو -->
+    <div
+      id="modalOverlay"
+      class="modal-overlay"
+      onclick="closeModalOnOverlay(event)"
+    >
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2 id="modalTitle"></h2>
+          <button onclick="closeModal()">✕ بستن</button>
+        </div>
+        <div class="modal-search-area">
+          <input
+            type="text"
+            id="searchModal"
+            placeholder="جستجو در آگهی‌ها (تلفن، رنگ، توضیحات، متن پیام...)"
+            oninput="filterModalAds()"
+          />
+        </div>
+        <div id="modalMeta"></div>
+        <div id="modalList"></div>
+      </div>
+    </div>
+
+    <!-- مدال لیست کانال‌ها -->
+    <div
+      id="channelsModalOverlay"
+      class="modal-overlay"
+      onclick="closeChannelsModalOnOverlay(event)"
+    >
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2>لیست کانال‌ها</h2>
+          <button onclick="closeChannelsModal()">✕ بستن</button>
+        </div>
+        <div class="modal-search-area">
+          <input
+            type="text"
+            id="searchChannelsModal"
+            placeholder="جستجوی کانال..."
+            oninput="filterChannelsModal()"
+          />
+        </div>
+        <div id="channelsModalList"></div>
+      </div>
+    </div>
+
+    <!-- مدال تنظیمات -->
+    <div
+      id="settingsModalOverlay"
+      class="modal-overlay"
+      onclick="closeSettingsModalOnOverlay(event)"
+    >
+      <div class="modal-box" style="max-width: 420px">
+        <div class="modal-header">
+          <h2>تنظیمات</h2>
+          <button onclick="closeSettingsModal()">✕ بستن</button>
+        </div>
+        <div class="settings-body">
+          <div class="settings-field">
+            <label for="refreshIntervalSelect"
+              >فاصله‌ی هر درخواست به سرور (بروزرسانی خودکار جدول)</label
+            >
+            <select
+              id="refreshIntervalSelect"
+              onchange="onRefreshIntervalChange()"
+            >
+              <option value="10000">۱۰ ثانیه (پیش‌فرض)</option>
+              <option value="15000">۱۵ ثانیه</option>
+              <option value="20000">۲۰ ثانیه</option>
+              <option value="30000">۳۰ ثانیه</option>
+              <option value="45000">۴۵ ثانیه</option>
+              <option value="60000">۱ دقیقه</option>
+            </select>
+          </div>
+          <div class="settings-field" style="margin-top: 16px">
+            <label for="aiRateLimitSelect"
+              >فاصله‌ی هر درخواست به هوش مصنوعی (برای جلوگیری از
+              بلاک‌شدن)</label
+            >
+            <select id="aiRateLimitSelect" onchange="onAiRateLimitChange()">
+              <option value="10">۱۰ ثانیه (پیش‌فرض)</option>
+              <option value="15">۱۵ ثانیه</option>
+              <option value="20">۲۰ ثانیه</option>
+              <option value="30">۳۰ ثانیه</option>
+              <option value="45">۴۵ ثانیه</option>
+              <option value="60">۱ دقیقه</option>
+            </select>
+            <div
+              id="aiRateLimitStatus"
+              style="font-size: 12px; color: var(--text-faint); margin-top: 6px"
+            ></div>
+          </div>
+          <div
+            class="settings-field"
+            style="
+              margin-top: 20px;
+              border-top: 1px solid var(--card-border);
+              padding-top: 16px;
+            "
+          >
+            <label>گزارش روزانه</label>
+            <a href="/report.html" style="text-decoration: none">
+              <button style="width: 100%">
+                📊 مشاهده گزارش کمترین قیمت‌های امروز
+              </button>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- مدال هشدارهای قیمت (مدیریت قانون‌ها) -->
+    <div
+      id="alertsModalOverlay"
+      class="modal-overlay"
+      onclick="closeAlertsModalOnOverlay(event)"
+    >
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2>🔔 هشدارهای قیمت</h2>
+          <button onclick="closeAlertsModal()">✕ بستن</button>
+        </div>
+        <div class="alerts-form">
+          <div class="alerts-form-row">
+            <select id="alertCarNameSelect"></select>
+          </div>
+          <div class="alerts-form-row">
+            <input
+              type="number"
+              id="alertMinPrice"
+              placeholder="حداقل قیمت (میلیون تومان)"
+              min="0"
+            />
+            <input
+              type="number"
+              id="alertMaxPrice"
+              placeholder="حداکثر قیمت (میلیون تومان)"
+              min="0"
+            />
+            <button onclick="addPriceAlert()">افزودن هشدار</button>
+          </div>
+          <div class="alerts-form-hint">
+            پرکردن حداقل یا حداکثر کافی است؛ نیازی نیست هر دو را پر کنی.
+          </div>
+          <div class="alerts-form-error" id="alertFormError"></div>
+        </div>
+        <h3 style="padding: 12px 20px 0; margin: 0">قانون‌های فعلی</h3>
+        <div id="alertRulesList"></div>
+        <h3
+          style="
+            padding: 4px 20px 0;
+            margin: 0;
+            border-top: 1px solid var(--card-border);
+            padding-top: 14px;
+          "
+        >
+          آگهی‌های مطابقت‌یافته
+        </h3>
+        <div id="alertMatchesList"></div>
+      </div>
+    </div>
+
+    <script>
+      const REFRESH_INTERVAL_STORAGE_KEY = "carAdsRefreshIntervalMs";
+      const DEFAULT_REFRESH_INTERVAL_MS = 10000; // پیش‌فرض: هر ۱۰ ثانیه
+      const CHANNEL_PREVIEW_DEBOUNCE_MS = 450;
+      const ROWS_PER_PAGE = 10;
+      const ALERT_CHECK_INTERVAL_MS = 15000; // هر ۱۵ ثانیه چک می‌شود که match جدید دیده‌نشده هست یا نه
+
+      let REFRESH_INTERVAL_MS =
+        parseInt(localStorage.getItem(REFRESH_INTERVAL_STORAGE_KEY), 10) ||
+        DEFAULT_REFRESH_INTERVAL_MS;
+      let refreshTimer = null;
+      let alertCheckTimer = null;
+
+      let allAnalyticsData = [];
+      let currentPage = 1;
+
+      let currentModalAds = [];
+      let modalOpenCarName = null;
+      let modalOpenTrim = null; // null یعنی گروه «بدون تیپ مشخص»
+      let allChannels = [];
+      let channelPreviewTimeout = null;
+
+      // ---------- وضعیت فیلترهای سایدبار ----------
+      // selectedModels: مجموعه‌ی display_name هایی که کاربر با چک‌باکس تیک زده.
+      // مجموعه‌ی خالی یعنی «هیچ فیلتر مدلی فعال نیست» (همه نمایش داده می‌شوند).
+      let selectedModels = new Set();
+
+      function formatToman(amount) {
+        if (amount === null || amount === undefined)
+          return '<span class="no-price">—</span>';
+        return amount.toLocaleString("fa-IR") + " تومان";
+      }
+
+      function formatDate(iso) {
+        try {
+          return new Date(iso).toLocaleString("fa-IR");
+        } catch {
+          return iso;
+        }
+      }
+
+      // ---------- ساعت و تاریخ شمسی زنده (بدون هیچ کتابخونه‌ی خارجی) ----------
+
+      const PERSIAN_WEEKDAYS = [
+        "یکشنبه",
+        "دوشنبه",
+        "سه‌شنبه",
+        "چهارشنبه",
+        "پنجشنبه",
+        "جمعه",
+        "شنبه",
+      ];
+      const PERSIAN_MONTHS = [
+        "فروردین",
+        "اردیبهشت",
+        "خرداد",
+        "تیر",
+        "مرداد",
+        "شهریور",
+        "مهر",
+        "آبان",
+        "آذر",
+        "دی",
+        "بهمن",
+        "اسفند",
+      ];
+
+      // تبدیل تاریخ میلادی به شمسی (الگوریتم استاندارد، بدون وابستگی خارجی).
+      function gregorianToJalali(gy, gm, gd) {
+        const g_days_in_month = [
+          31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+        ];
+        const j_days_in_month = [
+          31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29,
+        ];
+
+        let gy2 = gm > 2 ? gy + 1 : gy;
+        let days =
+          355666 +
+          365 * gy +
+          Math.floor((gy2 + 3) / 4) -
+          Math.floor((gy2 + 99) / 100) +
+          Math.floor((gy2 + 399) / 400) +
+          gd +
+          g_days_in_month.slice(0, gm - 1).reduce((a, b) => a + b, 0);
+
+        let jy = -1595 + 33 * Math.floor(days / 12053);
+        days %= 12053;
+        jy += 4 * Math.floor(days / 1461);
+        days %= 1461;
+        if (days > 365) {
+          jy += Math.floor((days - 1) / 365);
+          days = (days - 1) % 365;
+        }
+
+        let jm, jd;
+        if (days < 186) {
+          jm = 1 + Math.floor(days / 31);
+          jd = 1 + (days % 31);
+        } else {
+          jm = 7 + Math.floor((days - 186) / 30);
+          jd = 1 + ((days - 186) % 30);
+        }
+
+        return { jy, jm, jd };
+      }
+
+      function toPersianDigits(input) {
+        const persianDigits = [
+          "۰",
+          "۱",
+          "۲",
+          "۳",
+          "۴",
+          "۵",
+          "۶",
+          "۷",
+          "۸",
+          "۹",
+        ];
+        return String(input).replace(
+          /[0-9]/g,
+          (d) => persianDigits[parseInt(d, 10)]
+        );
+      }
+
+      function updateLiveClock() {
+        const now = new Date();
+
+        const hh = String(now.getHours()).padStart(2, "0");
+        const mm = String(now.getMinutes()).padStart(2, "0");
+        const ss = String(now.getSeconds()).padStart(2, "0");
+        document.getElementById(
+          "liveClockTime"
+        ).textContent = `${hh}:${mm}:${ss}`;
+
+        const { jy, jm, jd } = gregorianToJalali(
+          now.getFullYear(),
+          now.getMonth() + 1,
+          now.getDate()
+        );
+        const weekday = PERSIAN_WEEKDAYS[now.getDay()];
+        const monthName = PERSIAN_MONTHS[jm - 1];
+        const dateText = `${weekday}، ${toPersianDigits(
+          jd
+        )} ${monthName} ${toPersianDigits(jy)}`;
+        document.getElementById("liveClockDate").textContent = dateText;
+      }
+
+      // ---------- جدول قیمت‌ها (با صفحه‌بندی) ----------
+
+      async function load() {
+        const tbody = document.querySelector("#result tbody");
+
+        try {
+          const res = await fetch(`/api/car-ads-analytics`);
+          const json = await res.json();
+
+          if (json.error) {
+            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">❌ ${json.error}</td></tr>`;
+            return;
+          }
+
+          allAnalyticsData = json.data;
+          renderModelCheckboxList();
+          renderTable();
+
+          if (modalOpenCarName) {
+            refreshModal(modalOpenCarName, modalOpenTrim);
+          }
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">❌ خطا در دریافت اطلاعات: ${err.message}</td></tr>`;
+        }
+      }
+
+      // ---------- سایدبار: فیلتر قیمت + چک‌باکس مدل‌ها ----------
+
+      function onFilterChange() {
+        currentPage = 1;
+        renderTable();
+      }
+
+      function renderModelCheckboxList() {
+        const container = document.getElementById("modelCheckboxList");
+        const q = document
+          .getElementById("modelSearchBox")
+          .value.trim()
+          .toLowerCase();
+
+        // لیست یکتای مدل‌ها از داده‌ی فعلی جدول، مرتب‌شده الفبایی.
+        const uniqueModels = Array.from(
+          new Set(allAnalyticsData.map((item) => item.display_name))
+        ).sort((a, b) => a.localeCompare(b, "fa"));
+
+        const filteredModels = q
+          ? uniqueModels.filter((name) => name.toLowerCase().includes(q))
+          : uniqueModels;
+
+        container.innerHTML = "";
+
+        if (filteredModels.length === 0) {
+          container.innerHTML =
+            '<div class="model-checkbox-empty">مدلی پیدا نشد</div>';
           return;
         }
 
-        allAnalyticsData = json.data;
-        renderTable();
+        filteredModels.forEach((name, idx) => {
+          const checkboxId = `modelCheckbox_${idx}`;
+          const wrap = document.createElement("div");
+          wrap.className = "model-checkbox-item";
 
-        if (modalOpenCarName) {
-          refreshModal(modalOpenCarName, modalOpenTrim);
-        }
-      } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">❌ خطا در دریافت اطلاعات: ${err.message}</td></tr>`;
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.id = checkboxId;
+          checkbox.checked = selectedModels.has(name);
+          checkbox.onchange = () => {
+            if (checkbox.checked) {
+              selectedModels.add(name);
+            } else {
+              selectedModels.delete(name);
+            }
+            currentPage = 1;
+            renderTable();
+          };
+
+          const label = document.createElement("label");
+          label.setAttribute("for", checkboxId);
+          label.textContent = name;
+
+          wrap.appendChild(checkbox);
+          wrap.appendChild(label);
+          container.appendChild(wrap);
+        });
       }
-    }
 
-    function getFilteredData() {
-      const q = document.getElementById("searchTable").value.trim().toLowerCase();
-      if (!q) return allAnalyticsData;
-      return allAnalyticsData.filter((item) => item.display_name.toLowerCase().includes(q));
-    }
+      function clearAllFilters() {
+        document.getElementById("filterPriceMin").value = "";
+        document.getElementById("filterPriceMax").value = "";
+        document.getElementById("modelSearchBox").value = "";
+        selectedModels.clear();
+        currentPage = 1;
+        renderModelCheckboxList();
+        renderTable();
+      }
 
-    function renderTable() {
-      const tbody = document.querySelector("#result tbody");
-      const filtered = getFilteredData();
-      const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
-      currentPage = Math.min(Math.max(1, currentPage), totalPages);
+      function getFilteredData() {
+        let data = allAnalyticsData;
 
-      const startIdx = (currentPage - 1) * ROWS_PER_PAGE;
-      const pageItems = filtered.slice(startIdx, startIdx + ROWS_PER_PAGE);
+        // فیلتر سرچ بالای جدول (مستقل از سایدبار، از قبل موجود بود)
+        const q = document
+          .getElementById("searchTable")
+          .value.trim()
+          .toLowerCase();
+        if (q) {
+          data = data.filter((item) =>
+            item.display_name.toLowerCase().includes(q)
+          );
+        }
 
-      tbody.innerHTML = "";
+        // فیلتر چک‌باکس مدل‌ها — اگه هیچ چک‌باکسی تیک نخورده، همه نمایش داده می‌شوند
+        if (selectedModels.size > 0) {
+          data = data.filter((item) => selectedModels.has(item.display_name));
+        }
 
-      if (pageItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">نتیجه‌ای پیدا نشد</td></tr>`;
-      } else {
-        pageItems.forEach((item, i) => {
-          const tr = document.createElement("tr");
-          tr.onclick = () => openModal(item.car_name, item.trim, item.display_name);
-          tr.innerHTML = `
-            <td class="row-num">${(startIdx + i + 1).toLocaleString("fa-IR")}</td>
+        // فیلتر بازه‌ی قیمت (min_price هر ردیف باید داخل بازه باشد؛ ورودی‌ها میلیون تومان هستند)
+        const minInput = document.getElementById("filterPriceMin").value;
+        const maxInput = document.getElementById("filterPriceMax").value;
+        const minToman =
+          minInput !== "" ? parseFloat(minInput) * 1000000 : null;
+        const maxToman =
+          maxInput !== "" ? parseFloat(maxInput) * 1000000 : null;
+
+        if (minToman !== null || maxToman !== null) {
+          data = data.filter((item) => {
+            if (item.min_price === null || item.min_price === undefined)
+              return false;
+            if (minToman !== null && item.min_price < minToman) return false;
+            if (maxToman !== null && item.min_price > maxToman) return false;
+            return true;
+          });
+        }
+
+        return data;
+      }
+
+      function renderTable() {
+        const tbody = document.querySelector("#result tbody");
+        const filtered = getFilteredData();
+        const totalPages = Math.max(
+          1,
+          Math.ceil(filtered.length / ROWS_PER_PAGE)
+        );
+        currentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+        const startIdx = (currentPage - 1) * ROWS_PER_PAGE;
+        const pageItems = filtered.slice(startIdx, startIdx + ROWS_PER_PAGE);
+
+        tbody.innerHTML = "";
+
+        if (pageItems.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">نتیجه‌ای پیدا نشد</td></tr>`;
+        } else {
+          pageItems.forEach((item, i) => {
+            const tr = document.createElement("tr");
+            tr.onclick = () =>
+              openModal(item.car_name, item.trim, item.display_name);
+            tr.innerHTML = `
+            <td class="row-num">${(startIdx + i + 1).toLocaleString(
+              "fa-IR"
+            )}</td>
             <td>${item.display_name}</td>
             <td>${item.total_ads.toLocaleString("fa-IR")}</td>
             <td>${item.priced_ads.toLocaleString("fa-IR")}</td>
@@ -566,384 +1386,690 @@
             <td>${formatToman(item.max_price)}</td>
             <td>${formatDate(item.last_seen)}</td>
           `;
-          tbody.appendChild(tr);
-        });
-      }
-
-      document.getElementById("resultCount").textContent =
-        filtered.length > 0 ? `${filtered.length.toLocaleString("fa-IR")} نتیجه` : "";
-
-      renderPagination(filtered.length, totalPages);
-    }
-
-    function renderPagination(totalCount, totalPages) {
-      const container = document.getElementById("pagination");
-
-      if (totalCount === 0) {
-        container.innerHTML = "";
-        return;
-      }
-
-      container.innerHTML = `
-        <span class="pagination-info">صفحه ${currentPage.toLocaleString("fa-IR")} از ${totalPages.toLocaleString("fa-IR")}</span>
-        <div class="pagination-buttons">
-          <button id="prevPageBtn" ${currentPage <= 1 ? "disabled" : ""}>قبلی</button>
-          <button id="nextPageBtn" ${currentPage >= totalPages ? "disabled" : ""}>بعدی</button>
-        </div>
-      `;
-
-      document.getElementById("prevPageBtn").onclick = () => {
-        currentPage--;
-        renderTable();
-      };
-      document.getElementById("nextPageBtn").onclick = () => {
-        currentPage++;
-        renderTable();
-      };
-    }
-
-    function onSearchInput() {
-      currentPage = 1;
-      renderTable();
-    }
-
-    // ---------- مدال جزئیات هر مدل ----------
-
-    async function openModal(carName, trim, displayName) {
-      modalOpenCarName = carName;
-      modalOpenTrim = trim || null;
-      document.getElementById("modalTitle").textContent = displayName || carName;
-      document.getElementById("modalMeta").textContent = "در حال بارگذاری...";
-      document.getElementById("modalList").innerHTML = "";
-      document.getElementById("searchModal").value = "";
-      document.getElementById("modalOverlay").style.display = "flex";
-      await refreshModal(carName, modalOpenTrim);
-    }
-
-    async function refreshModal(carName, trim) {
-      try {
-        let url = `/api/car-ads-ads?car_name=${encodeURIComponent(carName)}`;
-        if (trim) {
-          url += `&trim=${encodeURIComponent(trim)}`;
+            tbody.appendChild(tr);
+          });
         }
-        const res = await fetch(url);
-        const json = await res.json();
 
-        if (json.error) {
-          document.getElementById("modalMeta").textContent = "❌ " + json.error;
+        document.getElementById("resultCount").textContent =
+          filtered.length > 0
+            ? `${filtered.length.toLocaleString("fa-IR")} نتیجه`
+            : "";
+
+        renderPagination(filtered.length, totalPages);
+      }
+
+      function renderPagination(totalCount, totalPages) {
+        const container = document.getElementById("pagination");
+
+        if (totalCount === 0) {
+          container.innerHTML = "";
           return;
         }
 
-        currentModalAds = json.data;
-        filterModalAds();
+        container.innerHTML = `
+        <span class="pagination-info">صفحه ${currentPage.toLocaleString(
+          "fa-IR"
+        )} از ${totalPages.toLocaleString("fa-IR")}</span>
+        <div class="pagination-buttons">
+          <button id="prevPageBtn" ${
+            currentPage <= 1 ? "disabled" : ""
+          }>قبلی</button>
+          <button id="nextPageBtn" ${
+            currentPage >= totalPages ? "disabled" : ""
+          }>بعدی</button>
+        </div>
+      `;
 
-        const prices = currentModalAds
-          .map((ad) => ad.price_amount)
-          .filter((p) => p !== null && p !== undefined);
-
-        let metaText = `${json.count.toLocaleString("fa-IR")} آگهی`;
-        if (prices.length > 0) {
-          const min = Math.min(...prices);
-          const max = Math.max(...prices);
-          metaText += ` — کمترین قیمت: ${formatToman(min)} — بیشترین قیمت: ${formatToman(max)}`;
-        }
-        document.getElementById("modalMeta").innerHTML = metaText;
-      } catch (err) {
-        document.getElementById("modalMeta").textContent = "❌ خطا: " + err.message;
-      }
-    }
-
-    function renderModalAds(ads) {
-      const list = document.getElementById("modalList");
-      list.innerHTML = "";
-
-      if (ads.length === 0) {
-        list.innerHTML = '<div class="empty">آگهی‌ای پیدا نشد</div>';
-        return;
+        document.getElementById("prevPageBtn").onclick = () => {
+          currentPage--;
+          renderTable();
+        };
+        document.getElementById("nextPageBtn").onclick = () => {
+          currentPage++;
+          renderTable();
+        };
       }
 
-      // کمترین/بیشترین قیمت همیشه از کل آگهی‌های این مدل محاسبه می‌شود
-      // (نه فقط از زیرمجموعه‌ای که الان با سرچ فیلتر شده)، تا برچسب‌ها
-      // با تغییر متن سرچ عوض/گم نشوند.
-      const allPrices = currentModalAds
-        .map((a) => a.price_amount)
-        .filter((p) => p !== null && p !== undefined);
-      const minPrice = allPrices.length ? Math.min(...allPrices) : null;
-      const maxPrice = allPrices.length ? Math.max(...allPrices) : null;
+      function onSearchInput() {
+        currentPage = 1;
+        renderTable();
+      }
 
-      ads.forEach((ad) => {
-        const priceText = ad.price_amount
-          ? formatToman(ad.price_amount)
-          : (ad.price_label ? ad.price_label : '<span class="no-price">بدون قیمت مشخص</span>');
+      // ---------- مدال جزئیات هر مدل ----------
 
-        let badge = "";
-        if (ad.price_amount !== null && ad.price_amount !== undefined) {
-          if (minPrice === maxPrice) {
-            badge = '<span class="price-badge equal">⭐ تنها قیمت موجود</span>';
-          } else if (ad.price_amount === minPrice) {
-            badge = '<span class="price-badge min">🔻 کمترین قیمت</span>';
-          } else if (ad.price_amount === maxPrice) {
-            badge = '<span class="price-badge max">🔺 بیشترین قیمت</span>';
+      async function openModal(carName, trim, displayName) {
+        modalOpenCarName = carName;
+        modalOpenTrim = trim || null;
+        document.getElementById("modalTitle").textContent =
+          displayName || carName;
+        document.getElementById("modalMeta").textContent = "در حال بارگذاری...";
+        document.getElementById("modalList").innerHTML = "";
+        document.getElementById("searchModal").value = "";
+        document.getElementById("modalOverlay").style.display = "flex";
+        await refreshModal(carName, modalOpenTrim);
+      }
+
+      async function refreshModal(carName, trim) {
+        try {
+          let url = `/api/car-ads-ads?car_name=${encodeURIComponent(carName)}`;
+          if (trim) {
+            url += `&trim=${encodeURIComponent(trim)}`;
           }
+          const res = await fetch(url);
+          const json = await res.json();
+
+          if (json.error) {
+            document.getElementById("modalMeta").textContent =
+              "❌ " + json.error;
+            return;
+          }
+
+          currentModalAds = json.data;
+          filterModalAds();
+
+          const prices = currentModalAds
+            .map((ad) => ad.price_amount)
+            .filter((p) => p !== null && p !== undefined);
+
+          let metaText = `${json.count.toLocaleString("fa-IR")} آگهی`;
+          if (prices.length > 0) {
+            const min = Math.min(...prices);
+            const max = Math.max(...prices);
+            metaText += ` — کمترین قیمت: ${formatToman(
+              min
+            )} — بیشترین قیمت: ${formatToman(max)}`;
+          }
+          document.getElementById("modalMeta").innerHTML = metaText;
+        } catch (err) {
+          document.getElementById("modalMeta").textContent =
+            "❌ خطا: " + err.message;
+        }
+      }
+
+      function renderModalAds(ads) {
+        const list = document.getElementById("modalList");
+        list.innerHTML = "";
+
+        if (ads.length === 0) {
+          list.innerHTML = '<div class="empty">آگهی‌ای پیدا نشد</div>';
+          return;
         }
 
-        const detailsParts = [];
-        if (ad.color) detailsParts.push("رنگ: " + ad.color);
-        if (ad.trim) detailsParts.push("تیپ: " + ad.trim);
-        if (ad.production_year) detailsParts.push("سال: " + ad.production_year);
-        if (ad.mileage_km) detailsParts.push("کارکرد: " + ad.mileage_km.toLocaleString("fa-IR") + " کیلومتر");
-        if (ad.city) detailsParts.push("شهر: " + ad.city);
+        // کمترین/بیشترین قیمت همیشه از کل آگهی‌های این مدل محاسبه می‌شود
+        // (نه فقط از زیرمجموعه‌ای که الان با سرچ فیلتر شده)، تا برچسب‌ها
+        // با تغییر متن سرچ عوض/گم نشوند.
+        const allPrices = currentModalAds
+          .map((a) => a.price_amount)
+          .filter((p) => p !== null && p !== undefined);
+        const minPrice = allPrices.length ? Math.min(...allPrices) : null;
+        const maxPrice = allPrices.length ? Math.max(...allPrices) : null;
 
-        const card = document.createElement("div");
-        card.className = "ad-card";
-        card.innerHTML = `
+        ads.forEach((ad) => {
+          const priceText = ad.price_amount
+            ? formatToman(ad.price_amount)
+            : ad.price_label
+            ? ad.price_label
+            : '<span class="no-price">بدون قیمت مشخص</span>';
+
+          let badge = "";
+          if (ad.price_amount !== null && ad.price_amount !== undefined) {
+            if (minPrice === maxPrice) {
+              badge =
+                '<span class="price-badge equal">⭐ تنها قیمت موجود</span>';
+            } else if (ad.price_amount === minPrice) {
+              badge = '<span class="price-badge min">🔻 کمترین قیمت</span>';
+            } else if (ad.price_amount === maxPrice) {
+              badge = '<span class="price-badge max">🔺 بیشترین قیمت</span>';
+            }
+          }
+
+          const detailsParts = [];
+          if (ad.color) detailsParts.push("رنگ: " + ad.color);
+          if (ad.trim) detailsParts.push("تیپ: " + ad.trim);
+          if (ad.production_year)
+            detailsParts.push("سال: " + ad.production_year);
+          if (ad.mileage_km)
+            detailsParts.push(
+              "کارکرد: " + ad.mileage_km.toLocaleString("fa-IR") + " کیلومتر"
+            );
+          if (ad.city) detailsParts.push("شهر: " + ad.city);
+
+          const card = document.createElement("div");
+          card.className = "ad-card";
+          card.innerHTML = `
           <div class="ad-row">
             <div class="price-group">
               <strong>${priceText}</strong>
               ${badge}
             </div>
-            <a href="${ad.telegram_link}" target="_blank" rel="noopener" class="ad-link">مشاهده در تلگرام ↗</a>
+            <a href="${
+              ad.telegram_link
+            }" target="_blank" rel="noopener" class="ad-link">مشاهده در تلگرام ↗</a>
           </div>
-          ${detailsParts.length ? `<div class="ad-details">${detailsParts.join(" — ")}</div>` : ""}
+          ${
+            detailsParts.length
+              ? `<div class="ad-details">${detailsParts.join(" — ")}</div>`
+              : ""
+          }
           ${ad.phone ? `<div class="ad-phone">📞 ${ad.phone}</div>` : ""}
           ${ad.notes ? `<div class="ad-notes">${ad.notes}</div>` : ""}
-          ${ad.message_text ? `<div class="ad-text">${ad.message_text}</div>` : ""}
-          <div class="ad-date">${formatDate(ad.created_at)}</div>
-        `;
-        list.appendChild(card);
-      });
-    }
-
-    function filterModalAds() {
-      const q = document.getElementById("searchModal").value.trim().toLowerCase();
-      if (!q) {
-        renderModalAds(currentModalAds);
-        return;
-      }
-      const filtered = currentModalAds.filter((ad) => {
-        const haystack = [ad.phone, ad.color, ad.trim, ad.notes, ad.message_text, ad.city, ad.price_label]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(q);
-      });
-      renderModalAds(filtered);
-    }
-
-    function closeModal() {
-      modalOpenCarName = null;
-      modalOpenTrim = null;
-      document.getElementById("modalOverlay").style.display = "none";
-    }
-
-    function closeModalOnOverlay(event) {
-      if (event.target.id === "modalOverlay") closeModal();
-    }
-
-    // ---------- پیش‌نمایش زنده‌ی نام کانال ----------
-
-    function onChannelInputChange() {
-      clearTimeout(channelPreviewTimeout);
-      const username = document.getElementById("newChannelInput").value.trim().replace(/^@/, "");
-      const previewEl = document.getElementById("channelPreview");
-
-      if (!username) {
-        previewEl.textContent = "";
-        previewEl.className = "channel-preview";
-        return;
-      }
-
-      previewEl.textContent = "در حال جستجو...";
-      previewEl.className = "channel-preview loading";
-
-      channelPreviewTimeout = setTimeout(async () => {
-        try {
-          const res = await fetch(`/api/car-ads-channel-preview?username=${encodeURIComponent(username)}`);
-          const json = await res.json();
-          if (json.found) {
-            previewEl.textContent = "✅ " + json.title;
-            previewEl.className = "channel-preview found";
-          } else {
-            previewEl.textContent = "❌ کانالی با این نام پیدا نشد";
-            previewEl.className = "channel-preview not-found";
+          ${
+            ad.message_text
+              ? `<div class="ad-text">${ad.message_text}</div>`
+              : ""
           }
-        } catch (err) {
+          <div class="ad-date">${formatDate(
+            ad.telegram_date || ad.created_at
+          )}</div>
+        `;
+          list.appendChild(card);
+        });
+      }
+
+      function filterModalAds() {
+        const q = document
+          .getElementById("searchModal")
+          .value.trim()
+          .toLowerCase();
+        if (!q) {
+          renderModalAds(currentModalAds);
+          return;
+        }
+        const filtered = currentModalAds.filter((ad) => {
+          const haystack = [
+            ad.phone,
+            ad.color,
+            ad.trim,
+            ad.notes,
+            ad.message_text,
+            ad.city,
+            ad.price_label,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(q);
+        });
+        renderModalAds(filtered);
+      }
+
+      function closeModal() {
+        modalOpenCarName = null;
+        modalOpenTrim = null;
+        document.getElementById("modalOverlay").style.display = "none";
+      }
+
+      function closeModalOnOverlay(event) {
+        if (event.target.id === "modalOverlay") closeModal();
+      }
+
+      // ---------- پیش‌نمایش زنده‌ی نام کانال ----------
+
+      function onChannelInputChange() {
+        clearTimeout(channelPreviewTimeout);
+        const username = document
+          .getElementById("newChannelInput")
+          .value.trim()
+          .replace(/^@/, "");
+        const previewEl = document.getElementById("channelPreview");
+
+        if (!username) {
           previewEl.textContent = "";
           previewEl.className = "channel-preview";
-        }
-      }, CHANNEL_PREVIEW_DEBOUNCE_MS);
-    }
-
-    // ---------- افزودن کانال ----------
-
-    async function addChannel() {
-      const input = document.getElementById("newChannelInput");
-      const username = input.value.trim().replace(/^@/, "");
-      if (!username) return;
-
-      await fetch("/api/car-ads-channels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username }),
-      });
-
-      input.value = "";
-      document.getElementById("channelPreview").textContent = "";
-      document.getElementById("channelPreview").className = "channel-preview";
-
-      // اگه مدال لیست کانال‌ها باز بود، بروزش کن
-      if (document.getElementById("channelsModalOverlay").style.display === "flex") {
-        await loadChannelsModal();
-      }
-    }
-
-    // ---------- مدال لیست کانال‌ها (سرچ + حذف) ----------
-
-    async function openChannelsModal() {
-      document.getElementById("searchChannelsModal").value = "";
-      document.getElementById("channelsModalOverlay").style.display = "flex";
-      await loadChannelsModal();
-    }
-
-    async function loadChannelsModal() {
-      const list = document.getElementById("channelsModalList");
-      list.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
-      try {
-        const res = await fetch("/api/car-ads-channels");
-        const json = await res.json();
-        allChannels = json.data || [];
-        filterChannelsModal();
-      } catch (err) {
-        list.innerHTML = `<div class="empty">❌ خطا: ${err.message}</div>`;
-      }
-    }
-
-    function filterChannelsModal() {
-      const q = document.getElementById("searchChannelsModal").value.trim().toLowerCase();
-      const filtered = allChannels.filter((ch) => ch.username.toLowerCase().includes(q));
-      renderChannelsModal(filtered);
-    }
-
-    function renderChannelsModal(channels) {
-      const list = document.getElementById("channelsModalList");
-      list.innerHTML = "";
-
-      if (channels.length === 0) {
-        list.innerHTML = '<div class="empty">کانالی پیدا نشد</div>';
-        return;
-      }
-
-      channels.forEach((ch) => {
-        const row = document.createElement("div");
-        row.className = "channel-row";
-        row.innerHTML = `
-          <span class="channel-name">@${ch.username}</span>
-          <span class="channel-status ${ch.active ? "active" : "inactive"}">${ch.active ? "فعال" : "غیرفعال"}</span>
-        `;
-        const btn = document.createElement("button");
-        btn.textContent = ch.active ? "حذف" : "فعال‌سازی";
-        btn.onclick = async () => {
-          if (ch.active) {
-            await fetch(`/api/car-ads-channels/${encodeURIComponent(ch.username)}`, { method: "DELETE" });
-          } else {
-            await fetch("/api/car-ads-channels", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ username: ch.username }),
-            });
-          }
-          await loadChannelsModal();
-        };
-        row.appendChild(btn);
-        list.appendChild(row);
-      });
-    }
-
-    function closeChannelsModal() {
-      document.getElementById("channelsModalOverlay").style.display = "none";
-    }
-
-    function closeChannelsModalOnOverlay(event) {
-      if (event.target.id === "channelsModalOverlay") closeChannelsModal();
-    }
-
-    // ---------- تنظیمات (فاصله‌ی درخواست به سرور) ----------
-
-    function startAutoRefresh() {
-      if (refreshTimer) clearInterval(refreshTimer);
-      refreshTimer = setInterval(load, REFRESH_INTERVAL_MS);
-
-      const seconds = REFRESH_INTERVAL_MS / 1000;
-      const label = seconds >= 60 ? "هر ۱ دقیقه" : `هر ${seconds.toLocaleString("fa-IR")} ثانیه`;
-      document.getElementById("liveDot").title = `بروزرسانی خودکار ${label}`;
-    }
-
-    function openSettingsModal() {
-      document.getElementById("refreshIntervalSelect").value = String(REFRESH_INTERVAL_MS);
-      document.getElementById("settingsModalOverlay").style.display = "flex";
-      loadAiRateLimit();
-    }
-
-    async function loadAiRateLimit() {
-      const statusEl = document.getElementById("aiRateLimitStatus");
-      const selectEl = document.getElementById("aiRateLimitSelect");
-      statusEl.textContent = "در حال بارگذاری...";
-      try {
-        const res = await fetch("/api/car-ads-settings");
-        const json = await res.json();
-        if (json.error) {
-          statusEl.textContent = "❌ " + json.error;
           return;
         }
-        // نزدیک‌ترین گزینه‌ی موجود توی سلکت رو انتخاب کن (در صورتی که مقدار دقیق توی لیست نباشه)
-        const value = json.ai_rate_limit_seconds;
-        const options = Array.from(selectEl.options).map((o) => parseFloat(o.value));
-        const closest = options.reduce((a, b) => (Math.abs(b - value) < Math.abs(a - value) ? b : a));
-        selectEl.value = String(closest);
-        statusEl.textContent = "";
-      } catch (err) {
-        statusEl.textContent = "❌ خطا: " + err.message;
-      }
-    }
 
-    async function onAiRateLimitChange() {
-      const statusEl = document.getElementById("aiRateLimitStatus");
-      const value = parseFloat(document.getElementById("aiRateLimitSelect").value);
-      statusEl.textContent = "در حال ذخیره...";
-      try {
-        const res = await fetch("/api/car-ads-settings", {
+        previewEl.textContent = "در حال جستجو...";
+        previewEl.className = "channel-preview loading";
+
+        channelPreviewTimeout = setTimeout(async () => {
+          try {
+            const res = await fetch(
+              `/api/car-ads-channel-preview?username=${encodeURIComponent(
+                username
+              )}`
+            );
+            const json = await res.json();
+            if (json.found) {
+              previewEl.textContent = "✅ " + json.title;
+              previewEl.className = "channel-preview found";
+            } else {
+              previewEl.textContent = "❌ کانالی با این نام پیدا نشد";
+              previewEl.className = "channel-preview not-found";
+            }
+          } catch (err) {
+            previewEl.textContent = "";
+            previewEl.className = "channel-preview";
+          }
+        }, CHANNEL_PREVIEW_DEBOUNCE_MS);
+      }
+
+      // ---------- افزودن کانال ----------
+
+      async function addChannel() {
+        const input = document.getElementById("newChannelInput");
+        const username = input.value.trim().replace(/^@/, "");
+        if (!username) return;
+
+        await fetch("/api/car-ads-channels", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ai_rate_limit_seconds: value }),
+          body: JSON.stringify({ username }),
         });
-        const json = await res.json();
-        if (json.error) {
-          statusEl.textContent = "❌ " + json.error;
+
+        input.value = "";
+        document.getElementById("channelPreview").textContent = "";
+        document.getElementById("channelPreview").className = "channel-preview";
+
+        // اگه مدال لیست کانال‌ها باز بود، بروزش کن
+        if (
+          document.getElementById("channelsModalOverlay").style.display ===
+          "flex"
+        ) {
+          await loadChannelsModal();
+        }
+      }
+
+      // ---------- مدال لیست کانال‌ها (سرچ + حذف) ----------
+
+      async function openChannelsModal() {
+        document.getElementById("searchChannelsModal").value = "";
+        document.getElementById("channelsModalOverlay").style.display = "flex";
+        await loadChannelsModal();
+      }
+
+      async function loadChannelsModal() {
+        const list = document.getElementById("channelsModalList");
+        list.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
+        try {
+          const res = await fetch("/api/car-ads-channels");
+          const json = await res.json();
+          allChannels = json.data || [];
+          filterChannelsModal();
+        } catch (err) {
+          list.innerHTML = `<div class="empty">❌ خطا: ${err.message}</div>`;
+        }
+      }
+
+      function filterChannelsModal() {
+        const q = document
+          .getElementById("searchChannelsModal")
+          .value.trim()
+          .toLowerCase();
+        const filtered = allChannels.filter((ch) =>
+          ch.username.toLowerCase().includes(q)
+        );
+        renderChannelsModal(filtered);
+      }
+
+      function renderChannelsModal(channels) {
+        const list = document.getElementById("channelsModalList");
+        list.innerHTML = "";
+
+        if (channels.length === 0) {
+          list.innerHTML = '<div class="empty">کانالی پیدا نشد</div>';
           return;
         }
-        statusEl.textContent = "✅ ذخیره شد";
-      } catch (err) {
-        statusEl.textContent = "❌ خطا: " + err.message;
+
+        channels.forEach((ch) => {
+          const row = document.createElement("div");
+          row.className = "channel-row";
+          row.innerHTML = `
+          <span class="channel-name">@${ch.username}</span>
+          <span class="channel-status ${ch.active ? "active" : "inactive"}">${
+            ch.active ? "فعال" : "غیرفعال"
+          }</span>
+        `;
+          const btn = document.createElement("button");
+          btn.textContent = ch.active ? "حذف" : "فعال‌سازی";
+          btn.onclick = async () => {
+            if (ch.active) {
+              await fetch(
+                `/api/car-ads-channels/${encodeURIComponent(ch.username)}`,
+                { method: "DELETE" }
+              );
+            } else {
+              await fetch("/api/car-ads-channels", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: ch.username }),
+              });
+            }
+            await loadChannelsModal();
+          };
+          row.appendChild(btn);
+          list.appendChild(row);
+        });
       }
-    }
 
-    function closeSettingsModal() {
-      document.getElementById("settingsModalOverlay").style.display = "none";
-    }
+      function closeChannelsModal() {
+        document.getElementById("channelsModalOverlay").style.display = "none";
+      }
 
-    function closeSettingsModalOnOverlay(event) {
-      if (event.target.id === "settingsModalOverlay") closeSettingsModal();
-    }
+      function closeChannelsModalOnOverlay(event) {
+        if (event.target.id === "channelsModalOverlay") closeChannelsModal();
+      }
 
-    function onRefreshIntervalChange() {
-      const value = parseInt(document.getElementById("refreshIntervalSelect").value, 10);
-      REFRESH_INTERVAL_MS = value;
-      localStorage.setItem(REFRESH_INTERVAL_STORAGE_KEY, String(value));
+      // ---------- تنظیمات (فاصله‌ی درخواست به سرور) ----------
+
+      function startAutoRefresh() {
+        if (refreshTimer) clearInterval(refreshTimer);
+        refreshTimer = setInterval(load, REFRESH_INTERVAL_MS);
+
+        const seconds = REFRESH_INTERVAL_MS / 1000;
+        const label =
+          seconds >= 60
+            ? "هر ۱ دقیقه"
+            : `هر ${seconds.toLocaleString("fa-IR")} ثانیه`;
+        document.getElementById("liveDot").title = `بروزرسانی خودکار ${label}`;
+      }
+
+      function openSettingsModal() {
+        document.getElementById("refreshIntervalSelect").value =
+          String(REFRESH_INTERVAL_MS);
+        document.getElementById("settingsModalOverlay").style.display = "flex";
+        loadAiRateLimit();
+      }
+
+      async function loadAiRateLimit() {
+        const statusEl = document.getElementById("aiRateLimitStatus");
+        const selectEl = document.getElementById("aiRateLimitSelect");
+        statusEl.textContent = "در حال بارگذاری...";
+        try {
+          const res = await fetch("/api/car-ads-settings");
+          const json = await res.json();
+          if (json.error) {
+            statusEl.textContent = "❌ " + json.error;
+            return;
+          }
+          // نزدیک‌ترین گزینه‌ی موجود توی سلکت رو انتخاب کن (در صورتی که مقدار دقیق توی لیست نباشه)
+          const value = json.ai_rate_limit_seconds;
+          const options = Array.from(selectEl.options).map((o) =>
+            parseFloat(o.value)
+          );
+          const closest = options.reduce((a, b) =>
+            Math.abs(b - value) < Math.abs(a - value) ? b : a
+          );
+          selectEl.value = String(closest);
+          statusEl.textContent = "";
+        } catch (err) {
+          statusEl.textContent = "❌ خطا: " + err.message;
+        }
+      }
+
+      async function onAiRateLimitChange() {
+        const statusEl = document.getElementById("aiRateLimitStatus");
+        const value = parseFloat(
+          document.getElementById("aiRateLimitSelect").value
+        );
+        statusEl.textContent = "در حال ذخیره...";
+        try {
+          const res = await fetch("/api/car-ads-settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ai_rate_limit_seconds: value }),
+          });
+          const json = await res.json();
+          if (json.error) {
+            statusEl.textContent = "❌ " + json.error;
+            return;
+          }
+          statusEl.textContent = "✅ ذخیره شد";
+        } catch (err) {
+          statusEl.textContent = "❌ خطا: " + err.message;
+        }
+      }
+
+      function closeSettingsModal() {
+        document.getElementById("settingsModalOverlay").style.display = "none";
+      }
+
+      function closeSettingsModalOnOverlay(event) {
+        if (event.target.id === "settingsModalOverlay") closeSettingsModal();
+      }
+
+      function onRefreshIntervalChange() {
+        const value = parseInt(
+          document.getElementById("refreshIntervalSelect").value,
+          10
+        );
+        REFRESH_INTERVAL_MS = value;
+        localStorage.setItem(REFRESH_INTERVAL_STORAGE_KEY, String(value));
+        startAutoRefresh();
+      }
+
+      // ---------- سیستم هشدار قیمت (زنگوله) ----------
+
+      async function checkUnseenAlerts() {
+        try {
+          const res = await fetch(
+            "/api/car-ads-alert-matches?unseen_only=true"
+          );
+          const json = await res.json();
+          if (json.error) return;
+
+          const count = json.count || 0;
+          const badge = document.getElementById("bellBadge");
+          const bellBtn = document.getElementById("bellBtn");
+
+          if (count > 0) {
+            badge.textContent =
+              count > 99 ? "۹۹+" : count.toLocaleString("fa-IR");
+            badge.style.display = "flex";
+            bellBtn.classList.add("has-unseen");
+          } else {
+            badge.style.display = "none";
+            bellBtn.classList.remove("has-unseen");
+          }
+        } catch (err) {
+          // شکست بی‌سروصدا — این چک پس‌زمینه‌ای است و نباید کاربر را مزاحم کند
+        }
+      }
+
+      function startAlertChecking() {
+        if (alertCheckTimer) clearInterval(alertCheckTimer);
+        checkUnseenAlerts();
+        alertCheckTimer = setInterval(
+          checkUnseenAlerts,
+          ALERT_CHECK_INTERVAL_MS
+        );
+      }
+
+      function populateAlertCarNameSelect() {
+        const select = document.getElementById("alertCarNameSelect");
+        const uniqueCarNames = Array.from(
+          new Set(allAnalyticsData.map((item) => item.car_name))
+        ).sort((a, b) => a.localeCompare(b, "fa"));
+
+        select.innerHTML = "";
+        if (uniqueCarNames.length === 0) {
+          const option = document.createElement("option");
+          option.textContent = "هنوز مدلی در جدول نیست";
+          option.disabled = true;
+          select.appendChild(option);
+          return;
+        }
+
+        uniqueCarNames.forEach((name) => {
+          const option = document.createElement("option");
+          option.value = name;
+          option.textContent = name;
+          select.appendChild(option);
+        });
+      }
+
+      async function openAlertsModal() {
+        document.getElementById("alertFormError").textContent = "";
+        document.getElementById("alertMinPrice").value = "";
+        document.getElementById("alertMaxPrice").value = "";
+        populateAlertCarNameSelect();
+        document.getElementById("alertsModalOverlay").style.display = "flex";
+        await Promise.all([loadAlertRules(), loadAlertMatches()]);
+
+        // با بازکردن مدال، همه‌ی match های دیده‌نشده seen می‌شوند و زنگوله خاموش می‌شود
+        try {
+          await fetch("/api/car-ads-alert-matches/mark-seen", {
+            method: "POST",
+          });
+          checkUnseenAlerts();
+        } catch (err) {
+          // بی‌اهمیت — دفعه‌ی بعد دوباره تلاش می‌شود
+        }
+      }
+
+      async function loadAlertRules() {
+        const container = document.getElementById("alertRulesList");
+        container.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
+        try {
+          const res = await fetch("/api/car-ads-price-alerts");
+          const json = await res.json();
+          const rules = json.data || [];
+
+          if (rules.length === 0) {
+            container.innerHTML =
+              '<div class="empty">هنوز هیچ قانونی ثبت نشده</div>';
+            return;
+          }
+
+          container.innerHTML = "";
+          rules.forEach((rule) => {
+            const card = document.createElement("div");
+            card.className = "alert-rule-card";
+
+            let rangeText;
+            if (rule.min_price !== null && rule.max_price !== null) {
+              rangeText = `${formatToman(rule.min_price)} تا ${formatToman(
+                rule.max_price
+              )}`;
+            } else if (rule.min_price !== null) {
+              rangeText = `حداقل ${formatToman(rule.min_price)}`;
+            } else {
+              rangeText = `حداکثر ${formatToman(rule.max_price)}`;
+            }
+
+            card.innerHTML = `
+            <div class="alert-rule-info">
+              <div class="rule-car-name">${rule.car_name}</div>
+              <div class="rule-range">${rangeText}</div>
+            </div>
+          `;
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "danger-outline";
+            deleteBtn.textContent = "حذف";
+            deleteBtn.onclick = async () => {
+              await fetch(`/api/car-ads-price-alerts/${rule.id}`, {
+                method: "DELETE",
+              });
+              await loadAlertRules();
+            };
+
+            card.appendChild(deleteBtn);
+            container.appendChild(card);
+          });
+        } catch (err) {
+          container.innerHTML = `<div class="empty">❌ خطا: ${err.message}</div>`;
+        }
+      }
+
+      async function loadAlertMatches() {
+        const container = document.getElementById("alertMatchesList");
+        container.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
+        try {
+          const res = await fetch("/api/car-ads-alert-matches");
+          const json = await res.json();
+          const matches = json.data || [];
+
+          if (matches.length === 0) {
+            container.innerHTML =
+              '<div class="empty">هنوز هیچ آگهی‌ای با قانون‌های شما مطابقت نداشته</div>';
+            return;
+          }
+
+          container.innerHTML = "";
+          matches.forEach((match) => {
+            const card = document.createElement("div");
+            card.className = "ad-card";
+            card.innerHTML = `
+            <div class="ad-row">
+              <div>
+                <div class="match-car-name">${match.car_name}</div>
+                <div class="match-price">${formatToman(
+                  match.price_amount
+                )}</div>
+              </div>
+              <a href="${
+                match.telegram_link
+              }" target="_blank" rel="noopener" class="ad-link">مشاهده در تلگرام ↗</a>
+            </div>
+            <div class="match-rule-info">مطابق قانون: ${
+              match.alert_car_name || "—"
+            }</div>
+            <div class="ad-date">${formatDate(match.matched_at)}</div>
+          `;
+            container.appendChild(card);
+          });
+        } catch (err) {
+          container.innerHTML = `<div class="empty">❌ خطا: ${err.message}</div>`;
+        }
+      }
+
+      async function addPriceAlert() {
+        const errorEl = document.getElementById("alertFormError");
+        errorEl.textContent = "";
+
+        const carName = document.getElementById("alertCarNameSelect").value;
+        const minInput = document.getElementById("alertMinPrice").value;
+        const maxInput = document.getElementById("alertMaxPrice").value;
+
+        if (!carName) {
+          errorEl.textContent = "لطفاً یک مدل خودرو انتخاب کن.";
+          return;
+        }
+        if (minInput === "" && maxInput === "") {
+          errorEl.textContent = "حداقل یکی از حداقل یا حداکثر قیمت را وارد کن.";
+          return;
+        }
+
+        const payload = { car_name: carName };
+        if (minInput !== "")
+          payload.min_price = Math.round(parseFloat(minInput) * 1000000);
+        if (maxInput !== "")
+          payload.max_price = Math.round(parseFloat(maxInput) * 1000000);
+
+        try {
+          const res = await fetch("/api/car-ads-price-alerts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const json = await res.json();
+          if (json.error) {
+            errorEl.textContent = "❌ " + json.error;
+            return;
+          }
+
+          document.getElementById("alertMinPrice").value = "";
+          document.getElementById("alertMaxPrice").value = "";
+          await loadAlertRules();
+        } catch (err) {
+          errorEl.textContent = "❌ خطا: " + err.message;
+        }
+      }
+
+      function closeAlertsModal() {
+        document.getElementById("alertsModalOverlay").style.display = "none";
+      }
+
+      function closeAlertsModalOnOverlay(event) {
+        if (event.target.id === "alertsModalOverlay") closeAlertsModal();
+      }
+
+      load();
       startAutoRefresh();
-    }
-
-    load();
-    startAutoRefresh();
-  </script>
-</body>
+      updateLiveClock();
+      setInterval(updateLiveClock, 1000);
+      startAlertChecking();
+    </script>
+  </body>
 </html>

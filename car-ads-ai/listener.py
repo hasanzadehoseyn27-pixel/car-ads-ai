@@ -6,23 +6,34 @@
 تا بشود از فرانت‌اند کانال اضافه/حذف کرد. هر کانال جدیدی که فعال می‌شود،
 خودش به‌صورت خودکار join می‌شود (JoinChannelRequest) — همین join، اصل بشکه‌ی
 خالی را طبیعتاً برآورده می‌کند: پیام‌های جدید فقط از لحظه‌ی join به بعد می‌رسند.
+
+هر شب راس ساعت ۰۰:۰۰ به وقت تهران، کل جدول car_ads پاک می‌شود (midnight_cleanup_loop)
+تا هر روز از صفر شروع شود.
+
+بعد از ذخیره‌ی هر آگهی جدید، در صورت مطابقت با یکی از قانون‌های هشدار قیمت
+(price_alerts)، در alert_matches ثبت می‌شود تا زنگوله‌ی داشبورد نشانش دهد.
 """
 import os
 import sys
 import json
 import asyncio
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
 import python_socks
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 from telethon.tl.functions.channels import JoinChannelRequest
 
 from ai_pool.extractor import extract_car_ad
-from db import init_db, save_ad, list_channels
+from db import init_db, save_ad, list_channels, clear_all_ads, check_and_record_alert_matches
 
 load_dotenv()
 
 API_ID = int(os.getenv("TELEGRAM_API_ID"))
 API_HASH = os.getenv("TELEGRAM_API_HASH")
+
+TEHRAN_TZ = ZoneInfo("Asia/Tehran")
 
 # پراکسی فقط وقتی لازمه که از ایران/پشت یه فیلترشکن وصل می‌شیم (مثلاً کامپیوتر
 # خونه). روی سرور آلمان (دسترسی مستقیم) باید USE_PROXY ست نشه یا false باشه.
@@ -101,6 +112,10 @@ async def live_handler(event):
 
     text = event.message.message
 
+    # زمان واقعی پست‌شدن پیام در تلگرام (event.message.date همیشه UTC-aware
+    # است) — به وقت تهران تبدیل می‌شود تا در دیتابیس/فرانت‌اند یکدست باشد.
+    telegram_date = event.message.date.astimezone(TEHRAN_TZ).isoformat()
+
     # extract_car_ad (داخل process_message) یک تماس HTTP synchronous است که
     # موقع تایم‌اوت providerها تا ۴۰+ ثانیه طول می‌کشد. با run_in_executor
     # این تماس را به یک ترد جدا می‌سپاریم تا event loop همیشه آزاد بماند.
@@ -115,8 +130,23 @@ async def live_handler(event):
             message_id=event.message.id,
             message_text=text,
             extracted=result,
+            telegram_date=telegram_date,
         )
         print(f"💾 ذخیره شد توی بشکه (channel={channel_name}, message_id={event.message.id})")
+
+        # بررسی مطابقت با قانون‌های هشدار قیمت — سبک و synchronous است (فقط
+        # یک کوئری کوچک SQLite)، پس نیازی به run_in_executor ندارد.
+        try:
+            matched = check_and_record_alert_matches(
+                car_name=result.get("car_name"),
+                price_amount=result.get("price_amount"),
+                channel=channel_name,
+                message_id=event.message.id,
+            )
+            if matched:
+                print(f"🔔 این آگهی با {matched} قانون هشدار قیمت مطابقت داشت")
+        except Exception as e:
+            print(f"⚠️ خطا در بررسی هشدار قیمت: {e}")
 
 
 async def channel_sync_loop():
@@ -152,6 +182,34 @@ async def channel_sync_loop():
         await asyncio.sleep(CHANNEL_SYNC_INTERVAL_SECONDS)
 
 
+def _seconds_until_next_midnight_tehran() -> float:
+    """چند ثانیه تا نیمه‌شب بعدی به وقت تهران مانده — برای زمان‌بندی دقیق پاکسازی."""
+    now = datetime.now(TEHRAN_TZ)
+    next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return (next_midnight - now).total_seconds()
+
+
+async def midnight_cleanup_loop():
+    """
+    هر شب دقیقاً ساعت ۰۰:۰۰ به وقت تهران، کل جدول car_ads پاک می‌شود تا هر
+    روز آگهی‌ها از صفر جمع‌آوری شوند. جدول channels و settings دست‌نخورده
+    می‌مانند. اگه این پروسه بین راه ری‌استارت شود (مثلاً توسط watchdog)،
+    دوباره فاصله تا نیمه‌شب بعدی محاسبه می‌شود — هیچ پاکسازی‌ای دوبار یا جا
+    نمی‌افتد به‌جز در حالت خیلی نادر خاموش‌بودن دقیقاً وسط نیمه‌شب.
+    """
+    while True:
+        wait_seconds = _seconds_until_next_midnight_tehran()
+        print(f"🕛 پاکسازی بعدی دیتابیس تا {wait_seconds / 3600:.1f} ساعت دیگر (نیمه‌شب به وقت تهران)")
+        await asyncio.sleep(wait_seconds)
+        try:
+            clear_all_ads()
+            print("🧹 نیمه‌شب شد — کل جدول آگهی‌ها پاک شد. امروز از صفر شروع می‌شود.")
+        except Exception as e:
+            print(f"⚠️ خطا در پاکسازی نیمه‌شب: {e}")
+        # کمی مکث برای اطمینان از عبور کامل از لحظه‌ی نیمه‌شب قبل از محاسبه‌ی دوباره
+        await asyncio.sleep(2)
+
+
 async def main():
     init_db()
     if USE_PROXY:
@@ -179,6 +237,7 @@ async def main():
     print("✅ وصل شد.")
 
     asyncio.create_task(channel_sync_loop())
+    asyncio.create_task(midnight_cleanup_loop())
 
     print("\n👂 در حال گوش‌دادن به کانال‌های فعال (لیست داینامیک از دیتابیس)")
     print("(هیچ پیام قدیمی خوانده نمی‌شود — طبق اصل بشکه‌ی خالی، Ctrl+C برای توقف)\n")

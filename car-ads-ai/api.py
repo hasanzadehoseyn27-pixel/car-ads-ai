@@ -25,10 +25,21 @@ import re
 
 import requests
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-from analytics import get_price_analytics, get_ads_for_model
-from db import list_channels, add_channel, remove_channel, get_setting, set_setting
+from analytics import get_price_analytics, get_ads_for_model, get_daily_lowest_prices
+from db import (
+    list_channels,
+    add_channel,
+    remove_channel,
+    get_setting,
+    set_setting,
+    add_price_alert,
+    list_price_alerts,
+    delete_price_alert,
+    list_alert_matches,
+    mark_all_alert_matches_seen,
+)
 
 app = FastAPI(title="car-ads-ai analytics API")
 
@@ -50,6 +61,22 @@ class ChannelIn(BaseModel):
 class SettingsIn(BaseModel):
     # محدوده‌ی مجاز دقیقاً همون چیزی است که توی UI (۱۰ ثانیه تا ۱ دقیقه) داریم
     ai_rate_limit_seconds: float = Field(..., ge=10, le=60)
+
+
+class PriceAlertIn(BaseModel):
+    car_name: str
+    min_price: int | None = None
+    max_price: int | None = None
+
+    @model_validator(mode="after")
+    def check_at_least_one_bound(self):
+        if self.min_price is None and self.max_price is None:
+            raise ValueError("حداقل یکی از حداقل یا حداکثر قیمت باید مشخص باشد")
+        if self.min_price is not None and self.max_price is not None and self.min_price > self.max_price:
+            raise ValueError("حداقل قیمت نمی‌تواند بیشتر از حداکثر قیمت باشد")
+        if not self.car_name or not self.car_name.strip():
+            raise ValueError("نام مدل خودرو نمی‌تواند خالی باشد")
+        return self
 
 
 def fetch_channel_preview(username: str) -> dict:
@@ -113,6 +140,19 @@ def ads(
     }
 
 
+@app.get("/daily-report")
+def daily_report():
+    """
+    گزارش روزانه‌ی کمترین قیمت هر مدل — برای صفحه‌ی گزارش جدید در داشبورد.
+    چون دیتابیس هر شب نیمه‌شب پاک می‌شود، این گزارش عملاً «امروز» را نشان می‌دهد.
+    """
+    data = get_daily_lowest_prices()
+    return {
+        "models_count": len(data),
+        "data": data,
+    }
+
+
 @app.get("/channel-preview")
 def channel_preview(username: str = Query(...)):
     username = username.strip().lstrip("@")
@@ -160,3 +200,36 @@ def get_settings():
 def update_settings(payload: SettingsIn):
     set_setting(AI_RATE_LIMIT_SETTING_KEY, str(payload.ai_rate_limit_seconds))
     return {"status": "ok", "ai_rate_limit_seconds": payload.ai_rate_limit_seconds}
+
+
+@app.get("/price-alerts")
+def get_price_alerts():
+    return {"data": list_price_alerts()}
+
+
+@app.post("/price-alerts")
+def create_price_alert(payload: PriceAlertIn):
+    alert_id = add_price_alert(
+        car_name=payload.car_name,
+        min_price=payload.min_price,
+        max_price=payload.max_price,
+    )
+    return {"status": "ok", "id": alert_id}
+
+
+@app.delete("/price-alerts/{alert_id}")
+def remove_price_alert(alert_id: int):
+    delete_price_alert(alert_id)
+    return {"status": "ok", "id": alert_id}
+
+
+@app.get("/alert-matches")
+def get_alert_matches(unseen_only: bool = Query(False)):
+    data = list_alert_matches(unseen_only=unseen_only)
+    return {"count": len(data), "data": data}
+
+
+@app.post("/alert-matches/mark-seen")
+def mark_alert_matches_seen():
+    mark_all_alert_matches_seen()
+    return {"status": "ok"}
