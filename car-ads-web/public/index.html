@@ -87,6 +87,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        flex-wrap: wrap;
       }
       .price-range-row input[type="number"] {
         width: 100%;
@@ -196,6 +197,7 @@
         font-size: 16px;
         border-radius: 999px;
         position: relative;
+        flex-shrink: 0;
       }
       .header-actions {
         margin-inline-start: auto;
@@ -207,6 +209,7 @@
       .header-secondary-btn {
         font-size: 12.5px;
         padding: 7px 12px;
+        white-space: nowrap;
       }
       .bell-badge {
         position: absolute;
@@ -306,6 +309,7 @@
         padding: 9px 22px;
         box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
           0 8px 24px -12px rgba(0, 0, 0, 0.5);
+        max-width: 100%;
       }
       .live-clock .clock-time {
         font-size: 17px;
@@ -347,6 +351,7 @@
         justify-content: space-between;
         gap: 10px;
         margin-bottom: 14px;
+        flex-wrap: wrap;
       }
       .result-count {
         font-size: 13px;
@@ -435,11 +440,16 @@
       }
 
       /* جدول */
+      .table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
       table {
         width: 100%;
         border-collapse: collapse;
         border-radius: var(--radius-lg);
         overflow: hidden;
+        min-width: 720px;
       }
       th,
       td {
@@ -447,6 +457,7 @@
         text-align: right;
         border-bottom: 1px solid var(--card-border);
         font-size: 13.5px;
+        white-space: nowrap;
       }
       th {
         background: var(--header-bg);
@@ -476,6 +487,7 @@
         color: var(--text-faint);
         padding: 32px 0;
         cursor: default;
+        white-space: normal;
       }
       .no-price {
         color: var(--text-faint);
@@ -488,6 +500,8 @@
         justify-content: space-between;
         margin-top: 14px;
         padding: 0 4px;
+        flex-wrap: wrap;
+        gap: 8px;
       }
       .pagination-info {
         font-size: 12.5px;
@@ -522,6 +536,7 @@
       }
       .toolbar input[type="text"] {
         min-width: 260px;
+        flex: 1;
       }
 
       button {
@@ -652,6 +667,8 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 7px;
+        flex-wrap: wrap;
+        gap: 6px;
       }
       .price-group {
         display: flex;
@@ -738,10 +755,12 @@
         display: flex;
         gap: 8px;
         align-items: center;
+        flex-wrap: wrap;
       }
       .alerts-form-row select,
       .alerts-form-row input {
         flex: 1;
+        min-width: 140px;
       }
       .alerts-form-hint {
         font-size: 11.5px;
@@ -767,6 +786,7 @@
         justify-content: space-between;
         align-items: center;
         gap: 10px;
+        flex-wrap: wrap;
       }
       .alert-rule-info {
         font-size: 13px;
@@ -795,14 +815,144 @@
         margin-top: 4px;
       }
 
-      /* واکنش‌گرا: زیر ۹۶۰ پیکسل سایدبار می‌رود بالای محتوا و ثابت نمی‌ماند */
-      @media (max-width: 960px) {
+      /* ===================== ریسپانسیو: تبلت ===================== */
+      @media (max-width: 1024px) {
         .page-layout {
           flex-direction: column;
+          padding: 20px 18px 48px;
+          gap: 18px;
         }
         .sidebar {
           width: 100%;
           position: static;
+          flex-direction: row;
+          flex-wrap: wrap;
+        }
+        .sidebar-card {
+          flex: 1;
+          min-width: 260px;
+        }
+      }
+
+      /* ===================== ریسپانسیو: موبایل ===================== */
+      @media (max-width: 640px) {
+        .page-layout {
+          padding: 14px 10px 40px;
+          gap: 14px;
+        }
+        .sidebar {
+          flex-direction: column;
+        }
+        .sidebar-card {
+          min-width: 0;
+          width: 100%;
+        }
+        h1 {
+          font-size: 17px;
+        }
+        .page-header {
+          gap: 8px;
+        }
+        .header-actions {
+          width: 100%;
+          justify-content: flex-start;
+        }
+        .header-secondary-btn {
+          font-size: 11.5px;
+          padding: 6px 10px;
+        }
+        .icon-btn {
+          width: 30px;
+          height: 30px;
+          font-size: 14px;
+        }
+        .live-clock {
+          padding: 7px 14px;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+        .live-clock .clock-time {
+          font-size: 14.5px;
+        }
+        .live-clock .clock-date {
+          font-size: 11.5px;
+        }
+        .channels-panel {
+          padding: 12px 12px;
+        }
+        .channel-add-row {
+          gap: 8px;
+        }
+        .channel-add-row input {
+          max-width: 100%;
+          flex: 1 1 100%;
+        }
+        .toolbar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .toolbar input[type="text"] {
+          min-width: 0;
+          width: 100%;
+        }
+        th,
+        td {
+          padding: 9px 10px;
+          font-size: 12.5px;
+        }
+        .modal-box {
+          max-width: 96vw;
+          max-height: 92vh;
+        }
+        .modal-header {
+          padding: 12px 14px;
+        }
+        .modal-header h2 {
+          font-size: 14.5px;
+        }
+        .modal-search-area,
+        .alerts-form {
+          padding: 10px 14px;
+        }
+        #modalList,
+        #channelsModalList,
+        #alertMatchesList,
+        #wantedAdsList,
+        #noPriceAdsList,
+        #alertRulesList {
+          padding: 10px 14px;
+        }
+        .ad-card {
+          padding: 10px 12px;
+        }
+        .channel-row {
+          grid-template-columns: 24px 1fr auto;
+          grid-template-rows: auto auto;
+        }
+        .channel-row .channel-status {
+          grid-column: 2;
+          justify-self: start;
+        }
+        .channel-row button {
+          grid-column: 3;
+          grid-row: 1 / span 2;
+        }
+        .alerts-form-row {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .alerts-form-row select,
+        .alerts-form-row input {
+          min-width: 0;
+          width: 100%;
+        }
+        .price-range-row {
+          flex-wrap: wrap;
+        }
+        .price-range-row span {
+          width: 100%;
+          text-align: center;
         }
       }
     </style>
@@ -927,21 +1077,23 @@
         </div>
 
         <div class="card">
-          <table id="result">
-            <thead>
-              <tr>
-                <th class="row-num">ردیف</th>
-                <th>مدل خودرو</th>
-                <th>تعداد کل آگهی</th>
-                <th>آگهی با قیمت</th>
-                <th>حداقل قیمت</th>
-                <th>میانگین قیمت</th>
-                <th>حداکثر قیمت</th>
-                <th>آخرین آگهی</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+          <div class="table-scroll">
+            <table id="result">
+              <thead>
+                <tr>
+                  <th class="row-num">ردیف</th>
+                  <th>مدل خودرو</th>
+                  <th>تعداد کل آگهی</th>
+                  <th>آگهی با قیمت</th>
+                  <th>حداقل قیمت</th>
+                  <th>میانگین قیمت</th>
+                  <th>حداکثر قیمت</th>
+                  <th>آخرین آگهی</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
 
         <div class="pagination" id="pagination"></div>
@@ -1025,6 +1177,14 @@
         <div class="modal-header">
           <h2>❔ آگهی‌های بدون قیمت مشخص</h2>
           <button onclick="closeNoPriceAdsModal()">✕ بستن</button>
+        </div>
+        <div class="modal-search-area">
+          <input
+            type="text"
+            id="searchNoPriceModal"
+            placeholder="جستجو (مدل، تلفن، رنگ، توضیحات، متن پیام...)"
+            oninput="filterNoPriceAds()"
+          />
         </div>
         <div
           id="modalMetaNoPrice"
@@ -1171,6 +1331,7 @@
       let modalOpenTrim = null; // null یعنی گروه «بدون تیپ مشخص»
       let allChannels = [];
       let channelPreviewTimeout = null;
+      let currentNoPriceAds = [];
 
       // ---------- وضعیت فیلترهای سایدبار ----------
       // selectedModels: مجموعه‌ی display_name هایی که کاربر با چک‌باکس تیک زده.
@@ -1546,17 +1707,23 @@
             return;
           }
 
-          currentModalAds = json.data;
+          // فقط آگهی‌های با قیمت مشخص در این مودال نشان داده می‌شوند — آگهی‌های
+          // بدون قیمت فقط در مودال جداگانه‌ی «بدون قیمت» (دکمه‌ی بالای صفحه)
+          // قابل مشاهده‌اند. همچنین از کمترین به بیشترین قیمت مرتب می‌شوند.
+          const pricedAds = (json.data || []).filter(
+            (ad) => ad.price_amount !== null && ad.price_amount !== undefined
+          );
+          pricedAds.sort((a, b) => a.price_amount - b.price_amount);
+          currentModalAds = pricedAds;
           filterModalAds();
 
-          const prices = currentModalAds
-            .map((ad) => ad.price_amount)
-            .filter((p) => p !== null && p !== undefined);
-
-          let metaText = `${json.count.toLocaleString("fa-IR")} آگهی`;
-          if (prices.length > 0) {
-            const min = Math.min(...prices);
-            const max = Math.max(...prices);
+          let metaText = `${currentModalAds.length.toLocaleString(
+            "fa-IR"
+          )} آگهی با قیمت مشخص`;
+          if (currentModalAds.length > 0) {
+            const min = currentModalAds[0].price_amount;
+            const max =
+              currentModalAds[currentModalAds.length - 1].price_amount;
             metaText += ` — کمترین قیمت: ${formatToman(
               min
             )} — بیشترین قیمت: ${formatToman(max)}`;
@@ -1768,9 +1935,10 @@
         if (event.target.id === "wantedAdsModalOverlay") closeWantedAdsModal();
       }
 
-      // ---------- مدال آگهی‌های بدون قیمت ----------
+      // ---------- مدال آگهی‌های بدون قیمت (با سرچ) ----------
 
       async function openNoPriceAdsModal() {
+        document.getElementById("searchNoPriceModal").value = "";
         document.getElementById("modalMetaNoPrice").textContent =
           "در حال بارگذاری...";
         document.getElementById("noPriceAdsList").innerHTML = "";
@@ -1785,23 +1953,55 @@
               "❌ " + json.error;
             return;
           }
+          currentNoPriceAds = json.data || [];
           document.getElementById(
             "modalMetaNoPrice"
-          ).textContent = `${json.count.toLocaleString(
+          ).textContent = `${currentNoPriceAds.length.toLocaleString(
             "fa-IR"
           )} آگهی بدون قیمت`;
-          const list = document.getElementById("noPriceAdsList");
-          list.innerHTML = "";
-          if (json.data.length === 0) {
-            list.innerHTML =
-              '<div class="empty">هیچ آگهی بدون قیمتی پیدا نشد</div>';
-            return;
-          }
-          json.data.forEach((ad) => list.appendChild(renderSimpleAdCard(ad)));
+          renderNoPriceAdsList(currentNoPriceAds);
         } catch (err) {
           document.getElementById("modalMetaNoPrice").textContent =
             "❌ خطا: " + err.message;
         }
+      }
+
+      function renderNoPriceAdsList(ads) {
+        const list = document.getElementById("noPriceAdsList");
+        list.innerHTML = "";
+        if (ads.length === 0) {
+          list.innerHTML = '<div class="empty">آگهی‌ای پیدا نشد</div>';
+          return;
+        }
+        ads.forEach((ad) => list.appendChild(renderSimpleAdCard(ad)));
+      }
+
+      function filterNoPriceAds() {
+        const q = document
+          .getElementById("searchNoPriceModal")
+          .value.trim()
+          .toLowerCase();
+        if (!q) {
+          renderNoPriceAdsList(currentNoPriceAds);
+          return;
+        }
+        const filtered = currentNoPriceAds.filter((ad) => {
+          const haystack = [
+            ad.car_name,
+            ad.phone,
+            ad.color,
+            ad.trim,
+            ad.notes,
+            ad.message_text,
+            ad.city,
+            ad.price_label,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(q);
+        });
+        renderNoPriceAdsList(filtered);
       }
 
       function closeNoPriceAdsModal() {
