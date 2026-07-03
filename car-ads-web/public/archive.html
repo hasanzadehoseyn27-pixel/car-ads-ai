@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>آرشیو دیروز — آگهی‌های قیمت‌دار</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+      :root {
+        --bg: #0b1320;
+        --card: #141f33;
+        --card-border: #263248;
+        --header-bg: #0f3d3a;
+        --accent: #2dd4bf;
+        --accent-bright: #5eead4;
+        --text: #e7ecf3;
+        --text-dim: #93a1b8;
+        --text-faint: #5c6b85;
+        --radius-lg: 14px;
+        --radius-sm: 7px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        overflow-x: hidden;
+        max-width: 100%;
+      }
+      body {
+        background: var(--bg);
+        background-image: radial-gradient(
+          circle at 15% 0%,
+          rgba(45, 212, 191, 0.07),
+          transparent 45%
+        );
+        color: var(--text);
+        font-family: "Vazirmatn", Tahoma, sans-serif;
+        padding: 28px 32px 60px;
+        margin: 0;
+      }
+      .page-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 22px;
+        flex-wrap: wrap;
+      }
+      h1 {
+        color: var(--accent-bright);
+        font-size: 21px;
+        font-weight: 700;
+        margin: 0;
+      }
+      .back-link {
+        color: var(--text-dim);
+        font-size: 13.5px;
+        text-decoration: none;
+        margin-inline-start: auto;
+      }
+      .back-link:hover {
+        color: var(--text);
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+      }
+      .result-count {
+        font-size: 13px;
+        color: var(--text-faint);
+      }
+      input[type="text"] {
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-sm);
+        padding: 7px 12px;
+        font-family: inherit;
+        font-size: 13.5px;
+        outline: none;
+        min-width: 260px;
+        flex: 1;
+      }
+      input[type="text"]:focus {
+        border-color: var(--accent);
+      }
+      button {
+        background: var(--header-bg);
+        color: var(--accent-bright);
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-sm);
+        padding: 8px 16px;
+        font-family: inherit;
+        font-size: 13.5px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s;
+        white-space: nowrap;
+      }
+      button:hover {
+        background: #115049;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
+          0 8px 24px -12px rgba(0, 0, 0, 0.5);
+      }
+      .table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        min-width: 760px;
+      }
+      th,
+      td {
+        padding: 12px 16px;
+        text-align: right;
+        border-bottom: 1px solid var(--card-border);
+        font-size: 13.5px;
+        white-space: nowrap;
+      }
+      th {
+        background: var(--header-bg);
+        color: var(--accent-bright);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      th.row-num,
+      td.row-num {
+        text-align: center;
+        color: var(--text-faint);
+        width: 36px;
+      }
+      tbody tr:hover {
+        background: #1b2a45;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      td.empty-cell {
+        text-align: center;
+        color: var(--text-faint);
+        padding: 32px 0;
+        white-space: normal;
+      }
+      .ad-link {
+        color: var(--accent-bright);
+        font-size: 12.5px;
+        text-decoration: none;
+      }
+      .ad-link:hover {
+        text-decoration: underline;
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding: 14px 10px 40px;
+        }
+        h1 {
+          font-size: 17px;
+        }
+        .toolbar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        input[type="text"] {
+          min-width: 0;
+          width: 100%;
+        }
+        th,
+        td {
+          padding: 9px 10px;
+          font-size: 12.5px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-header">
+      <h1>🗄️ آرشیو دیروز — آگهی‌های قیمت‌دار</h1>
+      <a href="/" class="back-link">← بازگشت به داشبورد</a>
+    </div>
+
+    <div class="toolbar">
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="جستجو (مدل، رنگ، تلفن، توضیحات، متن پیام...)"
+        oninput="renderTable()"
+      />
+      <div style="display: flex; gap: 8px; align-items: center">
+        <span class="result-count" id="resultCount"></span>
+        <button onclick="downloadExcel()">⬇️ دانلود اکسل</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-scroll">
+        <table id="archiveTable">
+          <thead>
+            <tr>
+              <th class="row-num">ردیف</th>
+              <th>مدل خودرو</th>
+              <th>قیمت</th>
+              <th>رنگ</th>
+              <th>تیپ</th>
+              <th>سال</th>
+              <th>شهر</th>
+              <th>تلفن</th>
+              <th>مشاهده در تلگرام</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      let allData = [];
+
+      function formatToman(amount) {
+        if (amount === null || amount === undefined) return "—";
+        return amount.toLocaleString("fa-IR") + " تومان";
+      }
+
+      async function load() {
+        const tbody = document.querySelector("#archiveTable tbody");
+        try {
+          const res = await fetch("/api/car-ads-archive");
+          const json = await res.json();
+          if (json.error) {
+            tbody.innerHTML = `<tr><td colspan="9" class="empty-cell">❌ ${json.error}</td></tr>`;
+            return;
+          }
+          allData = json.data || [];
+          renderTable();
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="9" class="empty-cell">❌ خطا در دریافت اطلاعات: ${err.message}</td></tr>`;
+        }
+      }
+
+      function getFiltered() {
+        const q = document
+          .getElementById("searchInput")
+          .value.trim()
+          .toLowerCase();
+        if (!q) return allData;
+        return allData.filter((ad) => {
+          const haystack = [
+            ad.car_name,
+            ad.color,
+            ad.trim,
+            ad.phone,
+            ad.notes,
+            ad.message_text,
+            ad.city,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(q);
+        });
+      }
+
+      function renderTable() {
+        const tbody = document.querySelector("#archiveTable tbody");
+        const filtered = getFiltered();
+        tbody.innerHTML = "";
+
+        if (filtered.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="9" class="empty-cell">نتیجه‌ای پیدا نشد — ممکن است هنوز نیمه‌شب نگذشته یا آرشیو خالی باشد</td></tr>`;
+        } else {
+          filtered.forEach((ad, i) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+            <td class="row-num">${(i + 1).toLocaleString("fa-IR")}</td>
+            <td>${ad.car_name || "—"}</td>
+            <td>${formatToman(ad.price_amount)}</td>
+            <td>${ad.color || "—"}</td>
+            <td>${ad.trim || "—"}</td>
+            <td>${ad.production_year || "—"}</td>
+            <td>${ad.city || "—"}</td>
+            <td>${ad.phone || "—"}</td>
+            <td>${
+              ad.telegram_link
+                ? `<a href="${ad.telegram_link}" target="_blank" rel="noopener" class="ad-link">مشاهده ↗</a>`
+                : "—"
+            }</td>
+          `;
+            tbody.appendChild(tr);
+          });
+        }
+
+        document.getElementById("resultCount").textContent =
+          filtered.length > 0
+            ? `${filtered.length.toLocaleString("fa-IR")} آگهی`
+            : "";
+      }
+
+      function downloadExcel() {
+        const filtered = getFiltered();
+        const rows = filtered.map((ad) => ({
+          "مدل خودرو": ad.car_name || "",
+          "قیمت (تومان)": ad.price_amount ?? "",
+          رنگ: ad.color || "",
+          تیپ: ad.trim || "",
+          سال: ad.production_year || "",
+          شهر: ad.city || "",
+          تلفن: ad.phone || "",
+          "لینک تلگرام": ad.telegram_link || "",
+        }));
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "آرشیو دیروز");
+
+        const today = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(workbook, `آرشیو-دیروز-${today}.xlsx`);
+      }
+
+      load();
+    </script>
+  </body>
+</html>

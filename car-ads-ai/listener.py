@@ -7,11 +7,10 @@
 خودش به‌صورت خودکار join می‌شود (JoinChannelRequest) — همین join، اصل بشکه‌ی
 خالی را طبیعتاً برآورده می‌کند: پیام‌های جدید فقط از لحظه‌ی join به بعد می‌رسند.
 
-هر شب راس ساعت ۰۰:۰۰ به وقت تهران، کل جدول car_ads پاک می‌شود (midnight_cleanup_loop)
-تا هر روز از صفر شروع شود.
-
-بعد از ذخیره‌ی هر آگهی جدید، در صورت مطابقت با یکی از قانون‌های هشدار قیمت
-(price_alerts)، در alert_matches ثبت می‌شود تا زنگوله‌ی داشبورد نشانش دهد.
+هر شب راس ساعت ۰۰:۰۰ به وقت تهران:
+  ۱) ابتدا محتوای فعلی car_ads (که تا این لحظه «امروز» بوده) در جدول
+     archived_ads آرشیو می‌شود (فقط همین یک روز، بدون انباشت).
+  ۲) سپس کل جدول car_ads پاک می‌شود تا روز جدید از صفر شروع شود.
 """
 import os
 import sys
@@ -26,7 +25,7 @@ from telethon import TelegramClient, events
 from telethon.tl.functions.channels import JoinChannelRequest
 
 from ai_pool.extractor import extract_car_ad
-from db import init_db, save_ad, list_channels, clear_all_ads, check_and_record_alert_matches
+from db import init_db, save_ad, list_channels, clear_all_ads, check_and_record_alert_matches, archive_yesterday_ads
 
 load_dotenv()
 
@@ -191,16 +190,25 @@ def _seconds_until_next_midnight_tehran() -> float:
 
 async def midnight_cleanup_loop():
     """
-    هر شب دقیقاً ساعت ۰۰:۰۰ به وقت تهران، کل جدول car_ads پاک می‌شود تا هر
-    روز آگهی‌ها از صفر جمع‌آوری شوند. جدول channels و settings دست‌نخورده
-    می‌مانند. اگه این پروسه بین راه ری‌استارت شود (مثلاً توسط watchdog)،
-    دوباره فاصله تا نیمه‌شب بعدی محاسبه می‌شود — هیچ پاکسازی‌ای دوبار یا جا
-    نمی‌افتد به‌جز در حالت خیلی نادر خاموش‌بودن دقیقاً وسط نیمه‌شب.
+    هر شب دقیقاً ساعت ۰۰:۰۰ به وقت تهران:
+      ۱) ابتدا archive_yesterday_ads() صدا زده می‌شود — محتوای فعلی car_ads
+         (که تا همین لحظه «امروز» بوده) به‌عنوان آرشیو «دیروز» کپی می‌شود.
+      ۲) سپس clear_all_ads() کل جدول car_ads را پاک می‌کند تا روز جدید از
+         صفر شروع شود.
+    جدول channels و settings دست‌نخورده می‌مانند. اگه این پروسه بین راه
+    ری‌استارت شود (مثلاً توسط watchdog)، دوباره فاصله تا نیمه‌شب بعدی
+    محاسبه می‌شود — هیچ پاکسازی‌ای دوبار یا جا نمی‌افتد به‌جز در حالت خیلی
+    نادر خاموش‌بودن دقیقاً وسط نیمه‌شب.
     """
     while True:
         wait_seconds = _seconds_until_next_midnight_tehran()
         print(f"🕛 پاکسازی بعدی دیتابیس تا {wait_seconds / 3600:.1f} ساعت دیگر (نیمه‌شب به وقت تهران)")
         await asyncio.sleep(wait_seconds)
+        try:
+            archive_yesterday_ads()
+            print("🗄️ آگهی‌های امروز به آرشیو «دیروز» منتقل شدند.")
+        except Exception as e:
+            print(f"⚠️ خطا در آرشیو کردن قبل از پاکسازی: {e}")
         try:
             clear_all_ads()
             print("🧹 نیمه‌شب شد — کل جدول آگهی‌ها پاک شد. امروز از صفر شروع می‌شود.")

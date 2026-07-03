@@ -22,6 +22,12 @@ AI پردازشش کرده) — از event.message.date در listener.py گرف�
 جدول alert_matches: هر آگهی جدیدی که با یکی از قانون‌های price_alerts مطابقت
 داشته باشد، اینجا ثبت می‌شود تا زنگوله‌ی داشبورد نشانش دهد. ستون seen مشخص
 می‌کند که کاربر آن را دیده یا نه.
+
+جدول archived_ads: هر شب درست قبل از پاکسازی نیمه‌شب (توسط
+archive_yesterday_ads در listener.py)، تمام محتوای فعلی car_ads اینجا کپی
+می‌شود. این جدول همیشه فقط «آخرین روز کامل‌شده» را نگه می‌دارد — یعنی هر
+شب اول کامل خالی می‌شود و بعد داده‌ی تازه (دیروز) در آن ریخته می‌شود؛ هیچ
+تاریخچه‌ی چندروزه‌ای جمع نمی‌شود.
 """
 import sqlite3
 from pathlib import Path
@@ -92,6 +98,31 @@ def init_db():
             seen INTEGER NOT NULL DEFAULT 0
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS archived_ads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel TEXT NOT NULL,
+            message_id INTEGER NOT NULL,
+            message_text TEXT,
+            ad_type TEXT,
+            car_name TEXT,
+            trim TEXT,
+            color TEXT,
+            production_year TEXT,
+            mileage_km INTEGER,
+            city TEXT,
+            delivery_unit TEXT,
+            delivery_status TEXT,
+            phone TEXT,
+            price_amount INTEGER,
+            price_label TEXT,
+            notes TEXT,
+            provider_used TEXT,
+            created_at TEXT NOT NULL,
+            telegram_date TEXT,
+            archived_at TEXT NOT NULL
+        )
+    """)
 
     # مهاجرت نرم: اگه دیتابیس قدیمی‌تر از قبل بدون ستون telegram_date وجود
     # داشته باشد (یعنی از قبل از این آپدیت ساخته شده)، ستون را اضافه می‌کند
@@ -150,13 +181,48 @@ def save_ad(channel: str, message_id: int, message_text: str, extracted: dict, t
         conn.close()
 
 
+def archive_yesterday_ads():
+    """
+    درست قبل از پاکسازی نیمه‌شب صدا زده می‌شود (از listener.py). تمام محتوای
+    فعلی car_ads را — که تا این لحظه «امروز» بوده و از این به بعد «دیروز»
+    محسوب می‌شود — به جدول archived_ads کپی می‌کند.
+
+    archived_ads ابتدا کامل خالی می‌شود تا فقط همین یک روز در آن بماند
+    (طبق خواسته: آرشیو فقط روز قبل، نه انباشت چند روزه).
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("DELETE FROM archived_ads")
+        conn.execute(
+            """
+            INSERT INTO archived_ads (
+                channel, message_id, message_text, ad_type, car_name, trim, color,
+                production_year, mileage_km, city, delivery_unit, delivery_status,
+                phone, price_amount, price_label, notes, provider_used, created_at,
+                telegram_date, archived_at
+            )
+            SELECT
+                channel, message_id, message_text, ad_type, car_name, trim, color,
+                production_year, mileage_km, city, delivery_unit, delivery_status,
+                phone, price_amount, price_label, notes, provider_used, created_at,
+                telegram_date, ?
+            FROM car_ads
+            """,
+            (now_iso,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def clear_all_ads():
     """
     پاکسازی کامل جدول car_ads — برای ریست خودکار نیمه‌شب (هر شب ساعت ۰۰:۰۰
     به وقت تهران، توسط listener.py صدا زده می‌شود). جدول channels، settings،
-    price_alerts دست‌نخورده می‌مانند؛ فقط آگهی‌ها پاک می‌شوند. alert_matches هم
-    عمداً پاک می‌شود تا هر روز زنگوله از صفر شروع شود (چون خودِ آگهی‌های مرجعشان
-    هم پاک شده‌اند).
+    price_alerts، archived_ads دست‌نخورده می‌مانند؛ فقط آگهی‌های امروز پاک
+    می‌شوند. alert_matches هم عمداً پاک می‌شود تا هر روز زنگوله از صفر شروع
+    شود (چون خودِ آگهی‌های مرجعشان هم پاک شده‌اند).
     """
     conn = sqlite3.connect(DB_PATH)
     try:

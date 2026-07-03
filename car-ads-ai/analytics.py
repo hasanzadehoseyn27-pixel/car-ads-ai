@@ -325,6 +325,35 @@ def get_no_price_ads(hours: int = 168) -> list[dict]:
     return result
 
 
+def get_archived_ads() -> list[dict]:
+    """
+    همه‌ی آگهی‌های قیمت‌دار (ad_type='for_sale' و price_amount مشخص) در
+    archived_ads — یعنی آرشیو «دیروز» — مرتب‌شده از کمترین به بیشترین قیمت.
+    برای صفحه‌ی آرشیو در داشبورد (archive.html) و خروجی اکسل استفاده می‌شود.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM archived_ads
+            WHERE ad_type = 'for_sale'
+              AND price_amount IS NOT NULL
+            ORDER BY price_amount ASC
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+
+    result = []
+    for row in rows:
+        item = dict(row)
+        item["telegram_link"] = f"https://t.me/{item['channel']}/{item['message_id']}"
+        result.append(item)
+    return result
+
+
 def _format_toman(amount):
     if amount is None:
         return "—"

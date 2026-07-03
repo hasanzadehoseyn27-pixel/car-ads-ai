@@ -33,6 +33,7 @@ from analytics import (
     get_daily_lowest_prices,
     get_wanted_ads,
     get_no_price_ads,
+    get_archived_ads,
 )
 from db import (
     list_channels,
@@ -173,6 +174,20 @@ def wanted_ads(hours: int = Query(168, ge=1, le=168)):
 def no_price_ads(hours: int = Query(168, ge=1, le=168)):
     """آگهی‌های فروش بدون قیمت مشخص — جدا از تحلیل قیمت، برای بررسی دستی."""
     data = get_no_price_ads(hours=hours)
+    return {
+        "count": len(data),
+        "data": data,
+    }
+
+
+@app.get("/archive")
+def archive():
+    """
+    آرشیو «دیروز» — همه‌ی آگهی‌های قیمت‌دار روزی که همین امروز صبح تمام
+    شده، مرتب‌شده از کمترین به بیشترین قیمت. برای صفحه‌ی archive.html و
+    دانلود اکسل استفاده می‌شود.
+    """
+    data = get_archived_ads()
     return {
         "count": len(data),
         "data": data,
