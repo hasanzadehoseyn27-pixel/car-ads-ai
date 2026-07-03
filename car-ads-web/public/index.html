@@ -1323,7 +1323,16 @@
       let refreshTimer = null;
       let alertCheckTimer = null;
 
+      // allAnalyticsData: خام و کامل، همان‌طور که از سرور می‌آید (شامل مدل‌های
+      // بدون هیچ قیمت مشخصی هم هست) — برای انتخاب مدل در فرم هشدار قیمت استفاده
+      // می‌شود، چون حتی مدلی که الان قیمت ندارد ممکن است بعداً قیمت‌دار شود.
+      //
+      // visibleAnalyticsData: فقط مدل‌هایی که حداقل یک آگهی با قیمت مشخص دارند
+      // (priced_ads > 0) — جدول اصلی و سایدبار فیلتر مدل فقط از همین استفاده
+      // می‌کنند، چون مدل‌های بدون هیچ قیمتی باید صرفاً در مودال «بدون قیمت»
+      // (دکمه‌ی ❔ بالای صفحه) دیده شوند، نه در جدول اصلی.
       let allAnalyticsData = [];
+      let visibleAnalyticsData = [];
       let currentPage = 1;
 
       let currentModalAds = [];
@@ -1475,6 +1484,13 @@
           }
 
           allAnalyticsData = json.data;
+          // فقط مدل‌هایی که حداقل یک آگهی با قیمت مشخص دارند وارد جدول اصلی
+          // و سایدبار می‌شوند — مدل‌های کاملاً بدون قیمت فقط در مودال «بدون
+          // قیمت» دیده می‌شوند.
+          visibleAnalyticsData = allAnalyticsData.filter(
+            (item) => item.priced_ads > 0
+          );
+
           renderModelCheckboxList();
           renderTable();
 
@@ -1500,9 +1516,10 @@
           .value.trim()
           .toLowerCase();
 
-        // لیست یکتای مدل‌ها از داده‌ی فعلی جدول، مرتب‌شده الفبایی.
+        // لیست یکتای مدل‌ها فقط از مدل‌های قیمت‌دار (visibleAnalyticsData)،
+        // مرتب‌شده الفبایی.
         const uniqueModels = Array.from(
-          new Set(allAnalyticsData.map((item) => item.display_name))
+          new Set(visibleAnalyticsData.map((item) => item.display_name))
         ).sort((a, b) => a.localeCompare(b, "fa"));
 
         const filteredModels = q
@@ -1557,7 +1574,7 @@
       }
 
       function getFilteredData() {
-        let data = allAnalyticsData;
+        let data = visibleAnalyticsData;
 
         // فیلتر سرچ بالای جدول (مستقل از سایدبار، از قبل موجود بود)
         const q = document
@@ -2318,6 +2335,9 @@
 
       function populateAlertCarNameSelect() {
         const select = document.getElementById("alertCarNameSelect");
+        // اینجا عمداً از allAnalyticsData (کامل، نه فیلترشده) استفاده می‌شود —
+        // چون حتی مدلی که الان هیچ آگهی با قیمتی ندارد، ممکن است بعداً قیمت‌دار
+        // شود و کاربر بخواهد از قبل برایش هشدار تنظیم کند.
         const uniqueCarNames = Array.from(
           new Set(allAnalyticsData.map((item) => item.car_name))
         ).sort((a, b) => a.localeCompare(b, "fa"));
