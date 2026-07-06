@@ -2,33 +2,21 @@
 لایه‌ی ذخیره‌سازی — «بشکه»: هر آگهی واقعی (is_ad=true) اینجا ذخیره می‌شود.
 فعلاً SQLite برای تست محلی؛ بعداً می‌شود به PostgreSQL سوییچ کرد بدون تغییر listener.py.
 
-جدول channels: لیست کانال‌هایی که listener.py باید گوش بدهد — به‌جای لیست ثابت
-توی کد، از اینجا (داینامیک) خوانده می‌شود تا بشود از فرانت‌اند کانال اضافه/حذف کرد.
+جدول channels: لیست کانال‌هایی که listener.py باید گوش بدهد.
+جدول settings: تنظیمات کلید-مقدار عمومی.
+ستون telegram_date: زمان واقعی پست در تلگرام.
+جدول price_alerts / alert_matches: سیستم هشدار قیمت.
+جدول archived_ads: آرشیو «دیروز» — قبل از پاکسازی نیمه‌شب پر می‌شود.
 
-جدول settings: تنظیمات کلید-مقدار عمومی که از فرانت‌اند (داشبورد) قابل تغییرند
-و توسط پروسه‌های پایتون (listener.py/llm_pool.py) خوانده می‌شوند — مثلاً فاصله‌ی
-حداقل بین تماس‌های AI. چون این تنظیمات از طریق دیتابیس مشترک منتقل می‌شوند،
-بین فرانت‌اند (Node) و بک‌اند (Python) هیچ ارتباط مستقیمی لازم نیست.
+جدول monitored_groups: لیست سوپرگروه‌هایی که یک‌بار برایشان استخراج کانال
+انجام شده و از این پس هر روز به‌صورت خودکار برای کانال‌های جدید چک می‌شوند.
+last_scanned_at آخرین لحظه‌ای است که این گروه اسکن شده — اسکن بعدی فقط
+پیام‌های بعد از همین لحظه را بررسی می‌کند (نه کل تاریخچه را دوباره).
 
-ستون telegram_date: زمان واقعی که پیام توی خودِ تلگرام پست شده (نه زمانی که
-AI پردازشش کرده) — از event.message.date در listener.py گرفته می‌شود و به
-وقت تهران ذخیره می‌شود. created_at (زمان پردازش AI) هم برای دیباگ داخلی نگه
-داشته می‌شود، ولی نمایش/مرتب‌سازی در تحلیل‌ها (analytics.py) و فرانت‌اند از
-همین telegram_date استفاده می‌کند.
-
-جدول price_alerts: قانون‌های هشدار قیمت که کاربر از داشبورد می‌سازد — هر قانون
-یک car_name (بدون تفکیک تیپ) و یک بازه‌ی قیمت (min/max) دارد.
-
-جدول alert_matches: هر آگهی جدیدی که با یکی از قانون‌های price_alerts مطابقت
-داشته باشد، اینجا ثبت می‌شود تا زنگوله‌ی داشبورد نشانش دهد. ستون seen مشخص
-می‌کند که کاربر آن را دیده یا نه.
-
-جدول archived_ads: هر شب درست قبل از پاکسازی نیمه‌شب (توسط
-archive_yesterday_ads در listener.py)، تمام محتوای فعلی car_ads اینجا کپی
-می‌شود. این جدول همیشه فقط «آخرین روز کامل‌شده» را نگه می‌دارد — یعنی هر
-شب اول کامل خالی می‌شود و بعد داده‌ی تازه (دیروز) در آن ریخته می‌شود؛ هیچ
-تاریخچه‌ی چندروزه‌ای جمع نمی‌شود.
+جدول channel_extraction_log: تاریخچه‌ی هر بار اسکن (چه دستی چه خودکار) —
+برای نمایش «هر روز چه کانال جدیدی پیدا شد» در داشبورد.
 """
+import json
 import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone
@@ -123,10 +111,24 @@ def init_db():
             archived_at TEXT NOT NULL
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS monitored_groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_username TEXT NOT NULL UNIQUE,
+            added_at TEXT NOT NULL,
+            last_scanned_at TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS channel_extraction_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_username TEXT NOT NULL,
+            run_at TEXT NOT NULL,
+            added_channels TEXT NOT NULL,
+            added_count INTEGER NOT NULL
+        )
+    """)
 
-    # مهاجرت نرم: اگه دیتابیس قدیمی‌تر از قبل بدون ستون telegram_date وجود
-    # داشته باشد (یعنی از قبل از این آپدیت ساخته شده)، ستون را اضافه می‌کند
-    # بدون اینکه داده‌های موجود را پاک کند.
     existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(car_ads)").fetchall()}
     if "telegram_date" not in existing_columns:
         conn.execute("ALTER TABLE car_ads ADD COLUMN telegram_date TEXT")
@@ -136,12 +138,6 @@ def init_db():
 
 
 def save_ad(channel: str, message_id: int, message_text: str, extracted: dict, telegram_date: str | None = None):
-    """
-    telegram_date: زمان واقعی پست شدن پیام در تلگرام (ISO format، به وقت تهران)،
-    که در listener.py از event.message.date گرفته و پاس داده می‌شود.
-    اگه به هر دلیلی ارسال نشود (None)، به‌جایش created_at (زمان پردازش) گذاشته
-    می‌شود تا هیچ‌وقت این ستون کاملاً خالی نماند.
-    """
     now_iso = datetime.now(timezone.utc).isoformat()
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -155,25 +151,13 @@ def save_ad(channel: str, message_id: int, message_text: str, extracted: dict, t
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                channel,
-                message_id,
-                message_text,
-                extracted.get("ad_type"),
-                extracted.get("car_name"),
-                extracted.get("trim"),
-                extracted.get("color"),
-                extracted.get("production_year"),
-                extracted.get("mileage_km"),
-                extracted.get("city"),
-                extracted.get("delivery_unit"),
-                extracted.get("delivery_status"),
-                extracted.get("phone"),
-                extracted.get("price_amount"),
-                extracted.get("price_label"),
-                extracted.get("notes"),
-                extracted.get("_provider_used"),
-                now_iso,
-                telegram_date or now_iso,
+                channel, message_id, message_text,
+                extracted.get("ad_type"), extracted.get("car_name"), extracted.get("trim"),
+                extracted.get("color"), extracted.get("production_year"), extracted.get("mileage_km"),
+                extracted.get("city"), extracted.get("delivery_unit"), extracted.get("delivery_status"),
+                extracted.get("phone"), extracted.get("price_amount"), extracted.get("price_label"),
+                extracted.get("notes"), extracted.get("_provider_used"),
+                now_iso, telegram_date or now_iso,
             ),
         )
         conn.commit()
@@ -182,14 +166,6 @@ def save_ad(channel: str, message_id: int, message_text: str, extracted: dict, t
 
 
 def archive_yesterday_ads():
-    """
-    درست قبل از پاکسازی نیمه‌شب صدا زده می‌شود (از listener.py). تمام محتوای
-    فعلی car_ads را — که تا این لحظه «امروز» بوده و از این به بعد «دیروز»
-    محسوب می‌شود — به جدول archived_ads کپی می‌کند.
-
-    archived_ads ابتدا کامل خالی می‌شود تا فقط همین یک روز در آن بماند
-    (طبق خواسته: آرشیو فقط روز قبل، نه انباشت چند روزه).
-    """
     now_iso = datetime.now(timezone.utc).isoformat()
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -217,13 +193,6 @@ def archive_yesterday_ads():
 
 
 def clear_all_ads():
-    """
-    پاکسازی کامل جدول car_ads — برای ریست خودکار نیمه‌شب (هر شب ساعت ۰۰:۰۰
-    به وقت تهران، توسط listener.py صدا زده می‌شود). جدول channels، settings،
-    price_alerts، archived_ads دست‌نخورده می‌مانند؛ فقط آگهی‌های امروز پاک
-    می‌شوند. alert_matches هم عمداً پاک می‌شود تا هر روز زنگوله از صفر شروع
-    شود (چون خودِ آگهی‌های مرجعشان هم پاک شده‌اند).
-    """
     conn = sqlite3.connect(DB_PATH)
     try:
         conn.execute("DELETE FROM car_ads")
@@ -234,11 +203,6 @@ def clear_all_ads():
 
 
 def add_channel(username: str):
-    """
-    افزودن یک کانال جدید، یا فعال‌سازی دوباره‌ی کانالی که قبلاً غیرفعال شده بود.
-    added_at هر بار به «الان» بروز می‌شود — یعنی همون لحظه‌ی فعال‌شدن، طبق
-    اصل بشکه‌ی خالی (پیام‌های جدید از این لحظه به بعد پردازش می‌شوند).
-    """
     conn = sqlite3.connect(DB_PATH)
     try:
         conn.execute(
@@ -254,11 +218,18 @@ def add_channel(username: str):
         conn.close()
 
 
+def channel_exists_active(username: str) -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM channels WHERE username = ? AND active = 1", (username,)
+        ).fetchone()
+        return row is not None
+    finally:
+        conn.close()
+
+
 def remove_channel(username: str):
-    """
-    غیرفعال‌کردن یک کانال — رکورد حذف نمی‌شود، فقط active=0 می‌شود تا تاریخچه
-    بماند و اگه دوباره فعال شد، نیازی به join مجدد توی تلگرام نباشد.
-    """
     conn = sqlite3.connect(DB_PATH)
     try:
         conn.execute("UPDATE channels SET active = 0 WHERE username = ?", (username,))
@@ -282,7 +253,6 @@ def list_channels(active_only: bool = False) -> list[dict]:
 
 
 def get_setting(key: str, default: str | None = None) -> str | None:
-    """مقدار یک تنظیم را برمی‌گرداند؛ اگه ثبت نشده بود، default برگردانده می‌شود."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -293,7 +263,6 @@ def get_setting(key: str, default: str | None = None) -> str | None:
 
 
 def set_setting(key: str, value: str) -> None:
-    """یک تنظیم را ذخیره/بروز می‌کند."""
     conn = sqlite3.connect(DB_PATH)
     try:
         conn.execute(
@@ -310,11 +279,6 @@ def set_setting(key: str, value: str) -> None:
 
 
 def add_price_alert(car_name: str, min_price: int | None, max_price: int | None) -> int:
-    """
-    ثبت یک قانون هشدار قیمت جدید. حداقل یا حداکثر می‌توانند None باشند
-    (یعنی «بدون کف» یا «بدون سقف»)، اما هر دو با هم نمی‌توانند None باشند —
-    این چک در api.py انجام می‌شود.
-    """
     conn = sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute(
@@ -341,7 +305,6 @@ def list_price_alerts() -> list[dict]:
 
 
 def delete_price_alert(alert_id: int) -> None:
-    """حذف یک قانون هشدار. چون alert_matches با ON DELETE CASCADE تعریف شده، match‌های مرتبط هم خودکار پاک می‌شوند."""
     conn = sqlite3.connect(DB_PATH)
     try:
         conn.execute("PRAGMA foreign_keys = ON")
@@ -352,18 +315,6 @@ def delete_price_alert(alert_id: int) -> None:
 
 
 def check_and_record_alert_matches(car_name: str, price_amount: int | None, channel: str, message_id: int) -> int:
-    """
-    بعد از ذخیره‌ی هر آگهی جدید صدا زده می‌شود (از listener.py). بررسی می‌کند
-    آیا car_name و price_amount این آگهی با کدام‌یک از قانون‌های price_alerts
-    مطابقت دارد؛ برای هرکدام که match شد، یک ردیف در alert_matches ثبت می‌شود.
-
-    مطابقت فقط بر اساس car_name خام است (بدون در نظر گرفتن trim)، طبق تصمیم
-    طراحی — یعنی «پژو ۲۰۶» با هر تیپی می‌تواند قانونی با car_name="پژو ۲۰۶"
-    را فعال کند. اگه price_amount آگهی مشخص نباشد (None)، هیچ قانونی برایش
-    match نمی‌شود، چون بازه‌ی قیمت قابل بررسی نیست.
-
-    خروجی: تعداد قانون‌هایی که match شدند (برای لاگ‌گیری در listener.py).
-    """
     if price_amount is None or not car_name:
         return 0
 
@@ -402,11 +353,6 @@ def check_and_record_alert_matches(car_name: str, price_amount: int | None, chan
 
 
 def list_alert_matches(unseen_only: bool = False) -> list[dict]:
-    """
-    لیست آگهی‌های match‌شده — برای مدال زنگوله در داشبورد. جدیدترین‌ها اول.
-    هر ردیف شامل car_name خودِ قانون هم هست (alert_car_name) تا کاربر بداند
-    این match مربوط به کدام قانون بوده، حتی اگه بعداً قانون تغییر/حذف شود.
-    """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -431,10 +377,107 @@ def list_alert_matches(unseen_only: bool = False) -> list[dict]:
 
 
 def mark_all_alert_matches_seen() -> None:
-    """همه‌ی match‌های دیده‌نشده را seen=1 می‌کند — وقتی کاربر مدال زنگوله را باز می‌کند."""
     conn = sqlite3.connect(DB_PATH)
     try:
         conn.execute("UPDATE alert_matches SET seen = 1 WHERE seen = 0")
         conn.commit()
     finally:
         conn.close()
+
+
+def add_monitored_group(group_username: str, last_scanned_at: str) -> None:
+    """
+    ثبت (یا بروزکردنِ) یک گروه به‌عنوان «مانیتورشونده» — یعنی هر روز به‌صورت
+    خودکار برای کانال جدید چک می‌شود. اگه از قبل ثبت شده بود، فقط
+    last_scanned_at آن به‌روز می‌شود (added_at دست‌نخورده می‌ماند).
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute(
+            """
+            INSERT INTO monitored_groups (group_username, added_at, last_scanned_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(group_username) DO UPDATE SET last_scanned_at = excluded.last_scanned_at
+            """,
+            (group_username, now_iso, last_scanned_at),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_monitored_groups() -> list[dict]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute("SELECT * FROM monitored_groups ORDER BY added_at DESC").fetchall()
+    finally:
+        conn.close()
+    return [dict(row) for row in rows]
+
+
+def update_monitored_group_scan_time(group_username: str, scanned_at: str) -> None:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute(
+            "UPDATE monitored_groups SET last_scanned_at = ? WHERE group_username = ?",
+            (scanned_at, group_username),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def add_extraction_log(group_username: str, run_at: str, added_channels: list[str]) -> None:
+    """
+    ثبت یک رکورد در تاریخچه‌ی استخراج — چه دستی (اولین‌بار) چه خودکار
+    (اسکن روزانه). added_channels می‌تواند لیست خالی باشد (یعنی آن روز
+    کانال جدیدی پیدا نشد) — این با نبود هیچ کانال جدید فرق دارد با نبود
+    رکورد اصلاً؛ فرانت‌اند از روی همین لیست خالی تشخیص می‌دهد که پیام
+    «هنوز کانال جدید پیدا نشده است» را نشان دهد.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute(
+            """
+            INSERT INTO channel_extraction_log (group_username, run_at, added_channels, added_count)
+            VALUES (?, ?, ?, ?)
+            """,
+            (group_username, run_at, json.dumps(added_channels, ensure_ascii=False), len(added_channels)),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_extraction_logs(group_username: str | None = None, limit: int = 60) -> list[dict]:
+    """
+    تاریخچه‌ی استخراج‌ها — جدیدترین اول. اگه group_username داده نشود،
+    تاریخچه‌ی همه‌ی گروه‌های مانیتورشونده با هم برگردانده می‌شود.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        if group_username:
+            rows = conn.execute(
+                "SELECT * FROM channel_extraction_log WHERE group_username = ? ORDER BY run_at DESC LIMIT ?",
+                (group_username, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM channel_extraction_log ORDER BY run_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+    finally:
+        conn.close()
+
+    result = []
+    for row in rows:
+        item = dict(row)
+        try:
+            item["added_channels"] = json.loads(item["added_channels"])
+        except Exception:
+            item["added_channels"] = []
+        result.append(item)
+    return result

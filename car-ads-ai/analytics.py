@@ -7,6 +7,13 @@
 در تلگرام) انجام می‌شود، نه created_at (زمان پردازش AI) — چون telegram_date
 نشان‌دهنده‌ی زمان واقعی آگهی است.
 
+تفکیک صفر/کارکرده: چون فیلد جداگانه‌ای برای وضعیت صفر/کارکرده نداریم، از
+mileage_km به‌عنوان معیار استفاده می‌شود — اگر mileage_km مقدار مشخص و
+بزرگ‌تر از صفر داشته باشد، آگهی «کارکرده» در نظر گرفته می‌شود؛ در غیر این
+صورت (خالی یا صفر) «صفر» فرض می‌شود. جدول اصلی داشبورد (get_price_analytics
+و get_ads_for_model) به‌صورت پیش‌فرض فقط خودروهای صفر را نشان می‌دهند؛
+خودروهای کارکرده با get_used_cars_report به‌صورت لیست خام و جدا در دسترس‌اند.
+
 این فایل کاملاً مستقل است؛ به listener.py یا db.py تغییری نمی‌دهد و
 فقط همان car_ads.db موجود را می‌خوانَد.
 """
@@ -64,7 +71,7 @@ def _display_name(car_name: str, trim: str | None) -> str:
     return car_name
 
 
-def get_price_analytics(hours: int = 24) -> list[dict]:
+def get_price_analytics(hours: int = 24, only_new: bool = True) -> list[dict]:
     """
     خروجی: لیستی از دیکشنری‌ها، هر کدوم برای یک ترکیب (car_name, trim):
         {
@@ -79,6 +86,10 @@ def get_price_analytics(hours: int = 24) -> list[dict]:
             "last_seen": str,    # آخرین زمان دیده‌شدن — زمان واقعی پست تلگرام (telegram_date)
         }
     مرتب‌شده بر اساس تعداد آگهی (پرتکرارترین مدل‌ها اول).
+
+    only_new: اگه True (پیش‌فرض)، فقط آگهی‌هایی که mileage_km ندارند یا صفر
+    است (یعنی خودروی صفر) در این تجمیع حساب می‌شوند — خودروهای کارکرده جدا،
+    با get_used_cars_report قابل مشاهده‌اند.
 
     چرا تیپ (trim) هم جزو کلید گروه‌بندی است: برای مدل‌هایی مثل دنا که هم
     دنده‌ای و هم اتومات دارند و قیمتشان واقعاً فرق دارد، قاطی‌کردن همه زیر
@@ -106,18 +117,19 @@ def get_price_analytics(hours: int = 24) -> list[dict]:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
-        rows = conn.execute(
-            """
+        query = """
             SELECT *
             FROM car_ads
             WHERE COALESCE(telegram_date, created_at) >= ?
               AND car_name IS NOT NULL
               AND TRIM(car_name) != ''
               AND ad_type = 'for_sale'
-            ORDER BY COALESCE(telegram_date, created_at) DESC
-            """,
-            (cutoff,),
-        ).fetchall()
+        """
+        if only_new:
+            query += " AND (mileage_km IS NULL OR mileage_km = 0)"
+        query += " ORDER BY COALESCE(telegram_date, created_at) DESC"
+
+        rows = conn.execute(query, (cutoff,)).fetchall()
     finally:
         conn.close()
 
@@ -149,7 +161,7 @@ def get_price_analytics(hours: int = 24) -> list[dict]:
     return result
 
 
-def get_ads_for_model(car_name: str, trim: str | None = None, hours: int = 24) -> list[dict]:
+def get_ads_for_model(car_name: str, trim: str | None = None, hours: int = 24, only_new: bool = True) -> list[dict]:
     """
     همه‌ی آگهی‌های یک ترکیب (car_name, trim) خاص در بازه‌ی زمانی مشخص را
     برمی‌گرداند — چه با قیمت و چه بدون قیمت. برای نمایش در مدال جزئیات
@@ -159,6 +171,8 @@ def get_ads_for_model(car_name: str, trim: str | None = None, hours: int = 24) -
 
     trim=None یعنی گروه «بدون تیپ مشخص» (یعنی ستون trim توی دیتابیس NULL
     است)، نه «هر تیپی». این با همون گروه‌بندی get_price_analytics هم‌خوانه.
+
+    only_new: مثل get_price_analytics — پیش‌فرض True یعنی فقط خودروهای صفر.
 
     توجه: فقط آگهی‌های ad_type='for_sale' برگردانده می‌شوند، با همون منطق
     get_price_analytics (آگهی‌های «خریدارم» را کنار می‌گذاریم تا بودجه‌ی
@@ -177,9 +191,8 @@ def get_ads_for_model(car_name: str, trim: str | None = None, hours: int = 24) -
                   AND car_name = ?
                   AND trim IS NULL
                   AND ad_type = 'for_sale'
-                ORDER BY COALESCE(telegram_date, created_at) DESC
             """
-            params = (cutoff, car_name)
+            params: tuple = (cutoff, car_name)
         else:
             query = """
                 SELECT *
@@ -188,9 +201,12 @@ def get_ads_for_model(car_name: str, trim: str | None = None, hours: int = 24) -
                   AND car_name = ?
                   AND trim = ?
                   AND ad_type = 'for_sale'
-                ORDER BY COALESCE(telegram_date, created_at) DESC
             """
             params = (cutoff, car_name, trim)
+
+        if only_new:
+            query += " AND (mileage_km IS NULL OR mileage_km = 0)"
+        query += " ORDER BY COALESCE(telegram_date, created_at) DESC"
 
         rows = conn.execute(query, params).fetchall()
     finally:
@@ -259,10 +275,6 @@ def get_wanted_ads(hours: int = 168) -> list[dict]:
     آگهی‌های «خریدارم» (ad_type='wanted_to_buy') — این‌ها در get_price_analytics
     و get_daily_lowest_prices عمداً کنار گذاشته می‌شوند چون قیمت پیشنهادی
     خریدار نیست، ولی خودشان به‌عنوان یک لیست جداگانه در داشبورد قابل مشاهده‌اند.
-
-    پیش‌فرض hours=168 (یک هفته) گذاشته شده چون تعداد این آگهی‌ها معمولاً کم
-    است و محدودشان‌کردن به ۲۴ ساعت ممکن است خیلی خالی به‌نظر برسد؛ در عمل
-    چون دیتابیس هر شب پاک می‌شود، این عدد صرفاً یک سقف بی‌ضرر است.
     """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
@@ -311,6 +323,44 @@ def get_no_price_ads(hours: int = 168) -> list[dict]:
               AND ad_type = 'for_sale'
               AND price_amount IS NULL
             ORDER BY COALESCE(telegram_date, created_at) DESC
+            """,
+            (cutoff,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    result = []
+    for row in rows:
+        item = dict(row)
+        item["telegram_link"] = f"https://t.me/{item['channel']}/{item['message_id']}"
+        result.append(item)
+    return result
+
+
+def get_used_cars_report(hours: int = 24) -> list[dict]:
+    """
+    لیست خام همه‌ی آگهی‌های «کارکرده» (یعنی مقدار mileage_km مشخص و بزرگ‌تر
+    از صفر دارند — طبق قانون: اگر آگهی «کارکرد» یا «آمپر» داشته باشد، کارکرده
+    محسوب می‌شود). بر خلاف جدول اصلی (که فقط خودروهای صفر را نشان می‌دهد)،
+    این تابع مستقیم لیست تک‌تک آگهی‌ها را برمی‌گرداند، نه تجمیع بر اساس مدل
+    — چون قرار است در یک مودال جدول‌مانند نشان داده شود.
+
+    مرتب‌سازی: ابتدا بر اساس نام مدل (الفبایی)، بعد بر اساس قیمت (کمترین اول).
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM car_ads
+            WHERE COALESCE(telegram_date, created_at) >= ?
+              AND ad_type = 'for_sale'
+              AND mileage_km IS NOT NULL
+              AND mileage_km > 0
+            ORDER BY car_name ASC, price_amount ASC
             """,
             (cutoff,),
         ).fetchall()
