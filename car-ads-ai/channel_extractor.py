@@ -1,21 +1,20 @@
 """
 channel_extractor.py — استخراج خودکار کانال‌های مبدا از یک گروه تلگرامی که
-پست‌های فوروواردشده از کانال‌های مختلف را جمع می‌کند (مثلاً یک گروه بازار
-که آگهی‌های چند کانال را در خودش می‌بیند).
+پست‌های فوروواردشده از کانال‌های مختلف را جمع می‌کند.
 
-چون این ماژول باید هم‌زمان با listener.py (که از session جداگانه‌ای به اسم
-car_ads_session استفاده می‌کند) کار کند، عمداً از یک session کاملاً جدا و
-مستقل به اسم channel_extractor_session استفاده می‌کند — تا هیچ‌وقت دو
-پروسه هم‌زمان سعی نکنند یک فایل session مشترک را باز کنند.
+از یک session کاملاً جدا و مستقل (channel_extractor_session) استفاده
+می‌کند — تا با car_ads_session (که listener.py استفاده می‌کند) تداخل نکند.
 
-قبل از اولین استفاده، این session باید یک‌بار به‌صورت دستی لاگین شود:
+قبل از اولین استفاده، این session باید یک‌بار دستی لاگین شود:
     py channel_extractor.py --login
 
-بعد از اولین استخراج دستی یک گروه (extract_channels_from_group)، آن گروه
-به‌صورت خودکار به monitored_groups اضافه می‌شود و از آن پس هر ۲۴ ساعت
-(daily_scan_loop) فقط پیام‌های جدید (از آخرین اسکن به بعد) بررسی می‌شوند
-تا کانال‌های تازه‌ی احتمالی پیدا و اضافه شوند — بدون نیاز به هیچ اقدام
-دستی دوباره.
+بعد از اولین استخراج دستی یک گروه، آن گروه به‌صورت خودکار به
+monitored_groups اضافه می‌شود و از آن پس هر ۲۴ ساعت (daily_scan_loop) فقط
+پیام‌های جدید (از آخرین اسکن به بعد) بررسی می‌شوند.
+
+هر اجرای استخراج (چه دستی چه خودکار) یک run_id یکتا دارد؛ هر بار کانال
+جدیدی پیدا شود، همان لحظه با record_extraction_progress ثبت می‌شود تا
+فرانت‌اند با polling این پیشرفت را تقریباً زنده نشان دهد.
 """
 import logging
 import os
@@ -37,6 +36,8 @@ from db import (
     list_monitored_groups,
     update_monitored_group_scan_time,
     add_extraction_log,
+    start_extraction_run,
+    record_extraction_progress,
 )
 
 load_dotenv()
@@ -55,8 +56,8 @@ CONNECT_TIMEOUT_SECONDS = 30
 JOIN_TIMEOUT_SECONDS = 20
 DEFAULT_EXTRACTION_DAYS = 3
 MAX_MESSAGES_TO_SCAN = 5000
-DAILY_SCAN_CHECK_INTERVAL_SECONDS = 3600  # هر ۱ ساعت چک می‌کند کدام گروه‌ها ۲۴+ ساعت از آخرین اسکنشان گذشته
-GROUP_SCAN_GAP_SECONDS = 5  # فاصله‌ی کوچک بین اسکن هر گروه، برای احتیاط در برابر فلود
+DAILY_SCAN_CHECK_INTERVAL_SECONDS = 3600
+GROUP_SCAN_GAP_SECONDS = 5
 
 SESSION_NAME = "channel_extractor_session"
 
@@ -109,18 +110,23 @@ async def _join_if_needed(client: TelegramClient, entity):
     except UserAlreadyParticipantError:
         pass
     except Exception:
-        # ممکن است دعوت خصوصی لازم باشد یا از قبل عضو باشیم؛ در هر صورت با
-        # خواندن پیام‌ها ادامه می‌دهیم — join‌نبودن الزاماً مانع خواندن نیست.
         pass
 
 
-async def _scan_forwarded_channels(client: TelegramClient, entity, cutoff: datetime) -> tuple[set[str], int]:
+async def _scan_forwarded_channels(
+    client: TelegramClient, entity, cutoff: datetime, run_id: str | None = None
+) -> tuple[dict[str, str | None], int]:
     """
     پیام‌های گروه را از جدیدترین به قدیمی‌ترین می‌خواند تا به cutoff برسد،
-    و یوزرنیم کانال‌های مبدا هر پیام فوروواردشده را جمع می‌کند.
-    خروجی: (مجموعه‌ی یوزرنیم‌های یکتا، تعداد پیام‌های واقعاً بررسی‌شده).
+    و برای هر پیام فوروواردشده، یوزرنیم و اسم کانال مبدا را جمع می‌کند.
+
+    اگر run_id داده شود، همان لحظه که یک یوزرنیم *تازه* (که قبلاً در این
+    اجرا دیده نشده) پیدا شود، فوری با record_extraction_progress ثبت
+    می‌شود — این باعث نمایش زنده‌ی پیشرفت در فرانت‌اند می‌شود.
+
+    خروجی: (دیکشنری یوزرنیم -> اسم کانال یا None، تعداد پیام‌های بررسی‌شده)
     """
-    found_usernames: set[str] = set()
+    found: dict[str, str | None] = {}
     scanned = 0
 
     async for message in client.iter_messages(entity, limit=MAX_MESSAGES_TO_SCAN):
@@ -141,37 +147,56 @@ async def _scan_forwarded_channels(client: TelegramClient, entity, cutoff: datet
             continue
 
         src_username = getattr(src_chat, "username", None)
-        if src_username:
-            found_usernames.add(src_username)
+        if not src_username:
+            continue
 
-    return found_usernames, scanned
+        if src_username not in found:
+            src_title = getattr(src_chat, "title", None)
+            found[src_username] = src_title
+            if run_id:
+                record_extraction_progress(run_id, src_username, src_title)
+
+    return found, scanned
 
 
-def _classify_and_add_channels(found_usernames: set[str]) -> tuple[list[str], list[str]]:
-    """کانال‌های تازه را به جدول channels اضافه می‌کند؛ برمی‌گرداند: (اضافه‌شده‌ها, تکراری‌ها)."""
+def _classify_and_add_channels(found: dict[str, str | None]) -> tuple[list[dict], list[dict]]:
+    """
+    کانال‌های تازه را به جدول channels اضافه می‌کند.
+    خروجی: (لیست اضافه‌شده‌ها, لیست تکراری‌ها) — هرکدام لیستی از
+    {"username": ..., "title": ...}.
+    """
     existing_active = {c["username"] for c in list_channels(active_only=True)}
-    added: list[str] = []
-    skipped: list[str] = []
+    added: list[dict] = []
+    skipped: list[dict] = []
 
-    for uname in sorted(found_usernames):
+    for uname in sorted(found.keys()):
+        title = found[uname]
         if uname in existing_active:
-            skipped.append(uname)
+            skipped.append({"username": uname, "title": title})
         else:
             add_channel(uname)
-            added.append(uname)
+            added.append({"username": uname, "title": title})
 
     return added, skipped
 
 
-async def extract_channels_from_group(group_link: str, days: int = DEFAULT_EXTRACTION_DAYS) -> dict:
+async def extract_channels_from_group(
+    group_link: str, days: int = DEFAULT_EXTRACTION_DAYS, run_id: str | None = None
+) -> dict:
     """
-    استخراج اولیه (دستی) — یک هفته‌ی اخیر گروه را می‌خواند، کانال‌های
-    یکتا را استخراج و اضافه می‌کند، و همین گروه را برای اسکن خودکار روزانه
-    در monitored_groups ثبت می‌کند.
+    استخراج (دستی یا بازاسکن دستی) — بازه‌ی «days» روز اخیر گروه را
+    می‌خواند، کانال‌های یکتا را استخراج و اضافه می‌کند، و همین گروه را
+    برای اسکن خودکار روزانه در monitored_groups ثبت/به‌روز می‌کند.
+
+    اگر run_id داده نشود، خودش یکی می‌سازد (تا همیشه یک شناسه برای
+    polling وجود داشته باشد).
     """
     username = _normalize_group_link(group_link)
     if not username:
         raise ValueError("لینک یا یوزرنیم گروه نامعتبر است")
+
+    if not run_id:
+        run_id = start_extraction_run()
 
     client = await _connect_authorized_client()
     try:
@@ -183,8 +208,8 @@ async def extract_channels_from_group(group_link: str, days: int = DEFAULT_EXTRA
         await _join_if_needed(client, entity)
 
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-        found_usernames, scanned = await _scan_forwarded_channels(client, entity, cutoff)
-        added, skipped = _classify_and_add_channels(found_usernames)
+        found, scanned = await _scan_forwarded_channels(client, entity, cutoff, run_id=run_id)
+        added, skipped = _classify_and_add_channels(found)
 
         now_iso = datetime.now(timezone.utc).isoformat()
         add_monitored_group(username, last_scanned_at=now_iso)
@@ -192,8 +217,9 @@ async def extract_channels_from_group(group_link: str, days: int = DEFAULT_EXTRA
 
         return {
             "group": username,
+            "run_id": run_id,
             "scanned_messages": scanned,
-            "total_found": len(found_usernames),
+            "total_found": len(found),
             "added": added,
             "skipped_duplicates": skipped,
         }
@@ -201,12 +227,20 @@ async def extract_channels_from_group(group_link: str, days: int = DEFAULT_EXTRA
         await client.disconnect()
 
 
+async def rescan_monitored_group_now(group_username: str, days: int = DEFAULT_EXTRACTION_DAYS, run_id: str | None = None) -> dict:
+    """
+    بازاسکن دستی و فوری یک گروهِ از قبل مانیتورشونده — برخلاف اسکن
+    افزایشی خودکار (که فقط از آخرین اسکن به بعد را می‌خواند)، این تابع
+    عمداً دوباره «days» روز کامل اخیر را بررسی می‌کند — چون کاربر آن را
+    دستی و برای اطمینان کامل درخواست کرده، نه صرفاً برای پیدا کردن
+    تازه‌ترین‌ها.
+    """
+    result = await extract_channels_from_group(group_username, days=days, run_id=run_id)
+    return result
+
+
 async def scan_monitored_group_incremental(group_username: str, since_iso: str) -> dict:
-    """
-    اسکن افزایشی یک گروه از قبل مانیتورشونده — فقط پیام‌های بعد از
-    since_iso را می‌خواند (نه کل تاریخچه را دوباره). برای اسکن روزانه‌ی
-    خودکار استفاده می‌شود.
-    """
+    """اسکن افزایشی خودکار — فقط پیام‌های بعد از since_iso را می‌خواند."""
     client = await _connect_authorized_client()
     try:
         try:
@@ -221,8 +255,8 @@ async def scan_monitored_group_incremental(group_username: str, since_iso: str) 
         except Exception:
             cutoff = datetime.now(timezone.utc) - timedelta(days=1)
 
-        found_usernames, scanned = await _scan_forwarded_channels(client, entity, cutoff)
-        added, skipped = _classify_and_add_channels(found_usernames)
+        found, scanned = await _scan_forwarded_channels(client, entity, cutoff)
+        added, skipped = _classify_and_add_channels(found)
 
         now_iso = datetime.now(timezone.utc).isoformat()
         update_monitored_group_scan_time(group_username, now_iso)
@@ -239,16 +273,6 @@ async def scan_monitored_group_incremental(group_username: str, since_iso: str) 
 
 
 async def daily_scan_loop(check_interval_seconds: int = DAILY_SCAN_CHECK_INTERVAL_SECONDS):
-    """
-    هر ساعت چک می‌کند که آیا ۲۴ ساعت یا بیشتر از آخرین اسکن هر گروهِ
-    مانیتورشونده گذشته یا نه؛ اگه گذشته باشد، همان گروه را اسکن افزایشی
-    می‌کند و نتیجه (حتی اگه خالی بود) را در channel_extraction_log ثبت
-    می‌کند تا داشبورد بتواند «هنوز کانال جدید پیدا نشده» را هم نشان دهد.
-
-    طراحی به این شکل (چک ساعتی به‌جای خواب ۲۴ساعته‌ی یک‌باره) عمداً است —
-    اگه پروسه بین راه ری‌استارت شود (مثلاً توسط pm2)، تایمر از صفر شروع
-    نمی‌شود و هیچ گروهی بیش از حد معطل نمی‌ماند.
-    """
     while True:
         await asyncio.sleep(check_interval_seconds)
         try:

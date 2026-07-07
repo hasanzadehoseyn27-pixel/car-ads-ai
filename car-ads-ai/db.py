@@ -7,17 +7,19 @@
 ستون telegram_date: زمان واقعی پست در تلگرام.
 جدول price_alerts / alert_matches: سیستم هشدار قیمت.
 جدول archived_ads: آرشیو «دیروز» — قبل از پاکسازی نیمه‌شب پر می‌شود.
+جدول monitored_groups / channel_extraction_log: استخراج خودکار روزانه‌ی کانال از گروه.
 
-جدول monitored_groups: لیست سوپرگروه‌هایی که یک‌بار برایشان استخراج کانال
-انجام شده و از این پس هر روز به‌صورت خودکار برای کانال‌های جدید چک می‌شوند.
-last_scanned_at آخرین لحظه‌ای است که این گروه اسکن شده — اسکن بعدی فقط
-پیام‌های بعد از همین لحظه را بررسی می‌کند (نه کل تاریخچه را دوباره).
-
-جدول channel_extraction_log: تاریخچه‌ی هر بار اسکن (چه دستی چه خودکار) —
-برای نمایش «هر روز چه کانال جدیدی پیدا شد» در داشبورد.
+جدول extraction_progress: وضعیت لحظه‌ای یک اجرای در حال انجام استخراج —
+هر بار که یک کانال جدید در حین اسکن پیدا می‌شود، فوری یک ردیف اینجا ثبت
+می‌شود (شامل یوزرنیم و اسم واقعی کانال) تا فرانت‌اند بتواند با polling
+دوره‌ای، پیشرفت را تقریباً زنده نشان دهد. هر اجرا یک run_id یکتا دارد.
+این جدول به‌مرور رشد می‌کند؛ برای اجرای دستی معمولاً همان run_id بارها
+poll می‌شود و بعد از پایان دیگر لازم نیست، پس نگه‌داشتن تاریخچه‌اش مشکلی
+ایجاد نمی‌کند (حجمش کوچک است).
 """
 import json
 import sqlite3
+import uuid
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -127,6 +129,19 @@ def init_db():
             added_channels TEXT NOT NULL,
             added_count INTEGER NOT NULL
         )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS extraction_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT NOT NULL,
+            username TEXT NOT NULL,
+            title TEXT,
+            found_at TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_extraction_progress_run_id
+        ON extraction_progress(run_id)
     """)
 
     existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(car_ads)").fetchall()}
@@ -386,11 +401,6 @@ def mark_all_alert_matches_seen() -> None:
 
 
 def add_monitored_group(group_username: str, last_scanned_at: str) -> None:
-    """
-    ثبت (یا بروزکردنِ) یک گروه به‌عنوان «مانیتورشونده» — یعنی هر روز به‌صورت
-    خودکار برای کانال جدید چک می‌شود. اگه از قبل ثبت شده بود، فقط
-    last_scanned_at آن به‌روز می‌شود (added_at دست‌نخورده می‌ماند).
-    """
     now_iso = datetime.now(timezone.utc).isoformat()
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -417,6 +427,21 @@ def list_monitored_groups() -> list[dict]:
     return [dict(row) for row in rows]
 
 
+def remove_monitored_group(group_username: str) -> None:
+    """
+    حذف کامل یک گروه از لیست مانیتورشونده‌ها — از این پس اسکن روزانه‌ی
+    خودکار برایش انجام نمی‌شود. کانال‌هایی که قبلاً از این گروه استخراج و
+    به جدول channels اضافه شده بودند، دست‌نخورده باقی می‌مانند (فقط خودِ
+    گروه از فهرست مانیتورینگ حذف می‌شود).
+    """
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("DELETE FROM monitored_groups WHERE group_username = ?", (group_username,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def update_monitored_group_scan_time(group_username: str, scanned_at: str) -> None:
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -429,13 +454,11 @@ def update_monitored_group_scan_time(group_username: str, scanned_at: str) -> No
         conn.close()
 
 
-def add_extraction_log(group_username: str, run_at: str, added_channels: list[str]) -> None:
+def add_extraction_log(group_username: str, run_at: str, added_channels: list[dict]) -> None:
     """
-    ثبت یک رکورد در تاریخچه‌ی استخراج — چه دستی (اولین‌بار) چه خودکار
-    (اسکن روزانه). added_channels می‌تواند لیست خالی باشد (یعنی آن روز
-    کانال جدیدی پیدا نشد) — این با نبود هیچ کانال جدید فرق دارد با نبود
-    رکورد اصلاً؛ فرانت‌اند از روی همین لیست خالی تشخیص می‌دهد که پیام
-    «هنوز کانال جدید پیدا نشده است» را نشان دهد.
+    ثبت یک رکورد در تاریخچه‌ی استخراج. added_channels لیستی از دیکشنری‌های
+    {"username": ..., "title": ...} است (نه فقط یوزرنیم خام) تا در گزارش
+    روزانه هم اسم واقعی کانال نشان داده شود.
     """
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -451,11 +474,7 @@ def add_extraction_log(group_username: str, run_at: str, added_channels: list[st
         conn.close()
 
 
-def list_extraction_logs(group_username: str | None = None, limit: int = 60) -> list[dict]:
-    """
-    تاریخچه‌ی استخراج‌ها — جدیدترین اول. اگه group_username داده نشود،
-    تاریخچه‌ی همه‌ی گروه‌های مانیتورشونده با هم برگردانده می‌شود.
-    """
+def list_extraction_logs(group_username: str | None = None, limit: int = 100) -> list[dict]:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -481,3 +500,50 @@ def list_extraction_logs(group_username: str | None = None, limit: int = 60) -> 
             item["added_channels"] = []
         result.append(item)
     return result
+
+
+def start_extraction_run() -> str:
+    """یک شناسه‌ی یکتای جدید برای یک اجرای استخراج می‌سازد (بدون ثبت هیچ ردیفی هنوز)."""
+    return uuid.uuid4().hex
+
+
+def record_extraction_progress(run_id: str, username: str, title: str | None) -> None:
+    """
+    همان لحظه که یک کانال جدید در حین اسکن پیدا شد، ثبت می‌شود — تا
+    فرانت‌اند با poll کردن extraction-progress بتواند تقریباً زنده نشانش دهد.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute(
+            """
+            INSERT INTO extraction_progress (run_id, username, title, found_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (run_id, username, title, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_extraction_progress(run_id: str) -> list[dict]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            "SELECT * FROM extraction_progress WHERE run_id = ? ORDER BY found_at ASC",
+            (run_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [dict(row) for row in rows]
+
+
+def clear_extraction_progress(run_id: str) -> None:
+    """بعد از پایان یک اجرا (وقتی فرانت آخرین poll را انجام داد)، رکوردهای موقتش پاک می‌شوند تا جدول کوچک بماند."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("DELETE FROM extraction_progress WHERE run_id = ?", (run_id,))
+        conn.commit()
+    finally:
+        conn.close()

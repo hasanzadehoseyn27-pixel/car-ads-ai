@@ -235,16 +235,60 @@ fastify.delete("/api/car-ads-channels/:username", async (req, reply) => {
   }
 });
 
-fastify.post("/api/car-ads-channels/extract-from-group", async (req, reply) => {
-  try {
-    const res = await fetch(
-      `${ANALYTICS_SERVICE_URL}/channels/extract-from-group`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req.body),
+fastify.post(
+  "/api/car-ads-channels/extract-from-group-with-progress",
+  async (req, reply) => {
+    try {
+      const res = await fetch(
+        `${ANALYTICS_SERVICE_URL}/channels/extract-from-group-with-progress`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req.body),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        reply.code(res.status);
+        return { error: json.detail || "سرویس car-ads-ai پاسخ درستی نداد" };
       }
-    );
+      return json;
+    } catch (err) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+    }
+  }
+);
+
+fastify.post(
+  "/api/car-ads-channels/start-extraction-run",
+  async (req, reply) => {
+    try {
+      const res = await fetch(
+        `${ANALYTICS_SERVICE_URL}/channels/start-extraction-run`,
+        {
+          method: "POST",
+        }
+      );
+      if (!res.ok) {
+        reply.code(502);
+        return { error: "سرویس car-ads-ai پاسخ درستی نداد" };
+      }
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+    }
+  }
+);
+
+fastify.post("/api/car-ads-channels/rescan-group", async (req, reply) => {
+  try {
+    const res = await fetch(`${ANALYTICS_SERVICE_URL}/channels/rescan-group`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req.body),
+    });
     const json = await res.json();
     if (!res.ok) {
       reply.code(res.status);
@@ -256,6 +300,30 @@ fastify.post("/api/car-ads-channels/extract-from-group", async (req, reply) => {
     return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
   }
 });
+
+fastify.delete(
+  "/api/car-ads-monitored-groups/:groupUsername",
+  async (req, reply) => {
+    try {
+      const res = await fetch(
+        `${ANALYTICS_SERVICE_URL}/channels/monitored-groups/${encodeURIComponent(
+          req.params.groupUsername
+        )}`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!res.ok) {
+        reply.code(502);
+        return { error: "سرویس car-ads-ai پاسخ درستی نداد" };
+      }
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+    }
+  }
+);
 
 fastify.get("/api/car-ads-monitored-groups", async (req, reply) => {
   try {
@@ -281,6 +349,51 @@ fastify.get("/api/car-ads-extraction-log", async (req, reply) => {
       url += `?group_username=${encodeURIComponent(groupUsername)}`;
     }
     const res = await fetch(url);
+    if (!res.ok) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai پاسخ درستی نداد" };
+    }
+    return await res.json();
+  } catch (err) {
+    reply.code(502);
+    return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+  }
+});
+
+fastify.get("/api/car-ads-extraction-progress", async (req, reply) => {
+  const runId = req.query.run_id;
+  if (!runId) {
+    reply.code(400);
+    return { error: "پارامتر run_id الزامی است" };
+  }
+  try {
+    const res = await fetch(
+      `${ANALYTICS_SERVICE_URL}/channels/extraction-progress?run_id=${encodeURIComponent(
+        runId
+      )}`
+    );
+    if (!res.ok) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai پاسخ درستی نداد" };
+    }
+    return await res.json();
+  } catch (err) {
+    reply.code(502);
+    return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+  }
+});
+
+fastify.post("/api/car-ads-extraction-progress/clear", async (req, reply) => {
+  const runId = req.query.run_id;
+  try {
+    const res = await fetch(
+      `${ANALYTICS_SERVICE_URL}/channels/extraction-progress/clear?run_id=${encodeURIComponent(
+        runId
+      )}`,
+      {
+        method: "POST",
+      }
+    );
     if (!res.ok) {
       reply.code(502);
       return { error: "سرویس car-ads-ai پاسخ درستی نداد" };

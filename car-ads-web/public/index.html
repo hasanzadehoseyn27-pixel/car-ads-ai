@@ -26,17 +26,14 @@
         --radius-md: 10px;
         --radius-sm: 7px;
       }
-
       * {
         box-sizing: border-box;
       }
-
       html,
       body {
         overflow-x: hidden;
         max-width: 100%;
       }
-
       body {
         background: var(--bg);
         background-image: radial-gradient(
@@ -49,7 +46,6 @@
         margin: 0;
         padding: 0;
       }
-
       .page-layout {
         display: flex;
         align-items: flex-start;
@@ -57,13 +53,11 @@
         padding: 28px 32px 60px;
         max-width: 100%;
       }
-
       .main-content {
         flex: 1;
         min-width: 0;
         max-width: 100%;
       }
-
       .sidebar {
         width: 260px;
         flex-shrink: 0;
@@ -193,11 +187,9 @@
         font-size: 12.5px;
         padding: 7px 10px;
       }
-
       .filter-toggle-btn {
         display: none;
       }
-
       .sidebar-scrim {
         display: none;
         position: fixed;
@@ -205,7 +197,6 @@
         background: rgba(5, 9, 16, 0.72);
         z-index: 60;
       }
-
       .page-header {
         display: flex;
         align-items: center;
@@ -328,7 +319,6 @@
           box-shadow: 0 0 0 0 rgba(45, 212, 191, 0);
         }
       }
-
       .live-clock-wrap {
         display: flex;
         justify-content: center;
@@ -367,7 +357,6 @@
         color: var(--text-dim);
         font-weight: 500;
       }
-
       .account-status-box {
         display: flex;
         align-items: center;
@@ -393,14 +382,12 @@
         color: var(--text);
         font-weight: 700;
       }
-
       h3 {
         color: var(--accent-bright);
         font-size: 14px;
         font-weight: 600;
         margin: 0 0 12px;
       }
-
       .card {
         background: var(--card);
         border: 1px solid var(--card-border);
@@ -408,7 +395,6 @@
         box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
           0 8px 24px -12px rgba(0, 0, 0, 0.5);
       }
-
       .toolbar {
         display: flex;
         align-items: center;
@@ -421,7 +407,6 @@
         font-size: 13px;
         color: var(--text-faint);
       }
-
       .channels-panel {
         padding: 16px 18px;
         margin-bottom: 22px;
@@ -453,7 +438,6 @@
       .channel-preview.duplicate {
         color: #fdba74;
       }
-
       .channels-modal-meta {
         padding: 10px 20px;
         color: var(--text-dim);
@@ -503,7 +487,6 @@
         padding: 5px 12px;
         white-space: nowrap;
       }
-
       .table-scroll {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
@@ -557,7 +540,6 @@
       .no-price {
         color: var(--text-faint);
       }
-
       .pagination {
         display: flex;
         align-items: center;
@@ -583,7 +565,6 @@
         opacity: 0.35;
         cursor: not-allowed;
       }
-
       input[type="text"] {
         background: var(--bg);
         color: var(--text);
@@ -602,7 +583,6 @@
         min-width: 260px;
         flex: 1;
       }
-
       button {
         background: var(--header-bg);
         color: var(--accent-bright);
@@ -642,7 +622,10 @@
       button.danger-outline:hover:not(:disabled) {
         background: #3f1d1d;
       }
-
+      button.tiny {
+        font-size: 11.5px;
+        padding: 4px 10px;
+      }
       .modal-overlay {
         position: fixed;
         inset: 0;
@@ -719,10 +702,10 @@
       #modalList,
       #channelsModalList,
       #alertMatchesList,
-      #wantedAdsList,
+      #wantedAdsTableWrap,
       #noPriceAdsList,
       #usedCarsTableWrap,
-      #extractionHistoryList {
+      #dailyReportList {
         overflow-y: auto;
         padding: 14px 20px;
         flex: 1;
@@ -814,8 +797,6 @@
         padding: 34px 0;
         font-size: 13.5px;
       }
-
-      /* ---------- فرم هشدار قیمت (بازطراحی‌شده) ---------- */
       .alerts-form {
         padding: 16px 20px;
         border-bottom: 1px solid var(--card-border);
@@ -847,7 +828,6 @@
         color: var(--danger);
         min-height: 16px;
       }
-
       .price-mode-tabs {
         display: flex;
         gap: 6px;
@@ -885,7 +865,6 @@
       .price-mode-fields .field-col.hidden {
         display: none;
       }
-
       #alertRulesList {
         overflow-y: auto;
         padding: 14px 20px;
@@ -950,6 +929,7 @@
         margin-top: 4px;
       }
 
+      /* ---------- افزودن گروه ---------- */
       .add-group-form {
         padding: 18px 20px;
         display: flex;
@@ -965,12 +945,12 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 14px;
-        padding: 40px 20px;
+        gap: 10px;
+        padding: 24px 20px 8px;
       }
       .spinner {
-        width: 34px;
-        height: 34px;
+        width: 30px;
+        height: 30px;
         border-radius: 50%;
         border: 3px solid var(--card-border);
         border-top-color: var(--accent);
@@ -981,8 +961,46 @@
           transform: rotate(360deg);
         }
       }
+      .live-progress-list {
+        display: none;
+        padding: 0 20px 12px;
+        max-height: 160px;
+        overflow-y: auto;
+      }
+      .live-progress-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-sm);
+        padding: 7px 10px;
+        margin-bottom: 6px;
+        font-size: 12.5px;
+        animation: fade-in 0.25s ease-out;
+      }
+      @keyframes fade-in {
+        from {
+          opacity: 0;
+          transform: translateY(-4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .live-progress-item .lp-icon {
+        flex-shrink: 0;
+      }
+      .live-progress-item .lp-username {
+        color: var(--accent-bright);
+        font-weight: 700;
+      }
+      .live-progress-item .lp-title {
+        color: var(--text-dim);
+      }
       .add-group-result {
-        padding: 16px 20px;
+        padding: 14px 20px;
         font-size: 13.5px;
         color: var(--text-dim);
         line-height: 1.9;
@@ -993,15 +1011,14 @@
         min-height: 16px;
         padding: 0 20px;
       }
-
-      .extraction-history-section {
+      .monitored-groups-section {
         border-top: 1px solid var(--card-border);
         display: flex;
         flex-direction: column;
         min-height: 0;
         flex: 1;
       }
-      .extraction-history-header {
+      .monitored-groups-header {
         padding: 14px 20px 8px;
         display: flex;
         align-items: center;
@@ -1009,37 +1026,94 @@
         gap: 10px;
         flex-wrap: wrap;
       }
-      .extraction-history-header h3 {
+      .monitored-groups-header h3 {
         margin: 0;
       }
-      .monitored-group-select {
-        max-width: 220px;
+      #monitoredGroupsList {
+        overflow-y: auto;
+        padding: 0 20px 16px;
+        flex: 1;
       }
-      .log-entry {
+      .monitored-group-card {
         background: var(--card);
         border: 1px solid var(--card-border);
         border-radius: var(--radius-md);
         padding: 11px 14px;
         margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .monitored-group-info {
         font-size: 13px;
       }
-      .log-entry .log-date {
+      .monitored-group-info .mg-username {
+        font-weight: 700;
+        color: var(--accent-bright);
+      }
+      .monitored-group-info .mg-last-scan {
+        color: var(--text-faint);
+        font-size: 11.5px;
+        margin-top: 3px;
+      }
+      .monitored-group-actions {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+
+      /* ---------- مودال گزارش استخراج روزانه (مجزا) ---------- */
+      .daily-report-header {
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--card-border);
+      }
+      .daily-report-header select {
+        max-width: 260px;
+      }
+      .daily-log-entry {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-md);
+        padding: 13px 15px;
+        margin-bottom: 10px;
+      }
+      .daily-log-entry .dl-date {
         color: var(--text-faint);
         font-size: 11.5px;
         margin-bottom: 6px;
       }
-      .log-entry .log-group {
+      .daily-log-entry .dl-group {
         color: var(--accent-bright);
         font-weight: 700;
-        font-size: 12.5px;
-        margin-bottom: 4px;
+        font-size: 13px;
+        margin-bottom: 6px;
       }
-      .log-entry .log-none {
+      .daily-log-entry .dl-count-badge {
+        display: inline-block;
+        background: #064e3b;
+        color: #6ee7b7;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 9px;
+        border-radius: 999px;
+        margin-inline-start: 8px;
+      }
+      .daily-log-entry .dl-count-badge.zero {
+        background: #3f1d1d;
+        color: var(--text-faint);
+      }
+      .daily-log-entry .dl-channels {
+        font-size: 12.5px;
+        color: #cbd5e1;
+        line-height: 1.8;
+        margin-top: 6px;
+      }
+      .daily-log-entry .dl-none {
         color: var(--text-faint);
         font-style: italic;
-      }
-      .log-entry .log-added {
-        color: #6ee7b7;
+        font-size: 12.5px;
       }
 
       @media (max-width: 1024px) {
@@ -1163,10 +1237,10 @@
         #modalList,
         #channelsModalList,
         #alertMatchesList,
-        #wantedAdsList,
+        #wantedAdsTableWrap,
         #noPriceAdsList,
         #alertRulesList,
-        #extractionHistoryList {
+        #dailyReportList {
           padding: 10px 14px;
         }
         .ad-card {
@@ -1194,12 +1268,17 @@
           width: 100%;
           text-align: center;
         }
-        .extraction-history-header {
+        .monitored-groups-header,
+        .daily-report-header {
           flex-direction: column;
           align-items: stretch;
         }
-        .monitored-group-select {
-          max-width: 100%;
+        .monitored-group-card {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .monitored-group-actions {
+          justify-content: flex-end;
         }
       }
     </style>
@@ -1440,22 +1519,52 @@
       </div>
     </div>
 
-    <!-- مدال آگهی‌های خریدارم -->
+    <!-- مدال آگهی‌های خریدارم (جدولی + صفحه‌بندی) -->
     <div
       id="wantedAdsModalOverlay"
       class="modal-overlay"
       onclick="closeWantedAdsModalOnOverlay(event)"
     >
-      <div class="modal-box">
+      <div class="modal-box modal-wide">
         <div class="modal-header">
           <h2>🔍 آگهی‌های خریدارم</h2>
           <button onclick="closeWantedAdsModal()">✕ بستن</button>
+        </div>
+        <div class="modal-search-area">
+          <input
+            type="text"
+            id="searchWantedAdsModal"
+            placeholder="جستجو (مدل، تلفن، رنگ، توضیحات، متن پیام...)"
+            oninput="filterWantedAds()"
+          />
         </div>
         <div
           id="modalMetaWanted"
           style="padding: 8px 20px; color: var(--text-dim); font-size: 12.5px"
         ></div>
-        <div id="wantedAdsList"></div>
+        <div id="wantedAdsTableWrap">
+          <div class="table-scroll">
+            <table id="wantedAdsTable">
+              <thead>
+                <tr>
+                  <th class="row-num">ردیف</th>
+                  <th>مدل خودرو</th>
+                  <th>بودجه پیشنهادی</th>
+                  <th>رنگ</th>
+                  <th>سال</th>
+                  <th>شهر</th>
+                  <th>تلفن</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div
+          class="pagination"
+          id="wantedAdsPagination"
+          style="padding: 0 20px 14px"
+        ></div>
       </div>
     </div>
 
@@ -1486,7 +1595,7 @@
       </div>
     </div>
 
-    <!-- مدال خودروهای کارکرده — دوبرابر عریض، به‌صورت جدول -->
+    <!-- مدال خودروهای کارکرده — جدولی + صفحه‌بندی -->
     <div
       id="usedCarsModalOverlay"
       class="modal-overlay"
@@ -1523,17 +1632,39 @@
                   <th>کارکرد (کیلومتر)</th>
                   <th>شهر</th>
                   <th>تلفن</th>
-                  <th>مشاهده در تلگرام</th>
                 </tr>
               </thead>
               <tbody></tbody>
             </table>
           </div>
         </div>
+        <div
+          class="pagination"
+          id="usedCarsPagination"
+          style="padding: 0 20px 14px"
+        ></div>
       </div>
     </div>
 
-    <!-- مدال افزودن گروه (استخراج خودکار کانال‌ها + تاریخچه) -->
+    <!-- مدال جزئیات مشترک (متن کامل پیام) — برای کلیک روی ردیف‌های کارکرده/خریدارم -->
+    <div
+      id="adDetailModalOverlay"
+      class="modal-overlay"
+      onclick="closeAdDetailModalOnOverlay(event)"
+    >
+      <div class="modal-box" style="max-width: 620px">
+        <div class="modal-header">
+          <h2 id="adDetailTitle">جزئیات آگهی</h2>
+          <button onclick="closeAdDetailModal()">✕ بستن</button>
+        </div>
+        <div
+          id="adDetailBody"
+          style="padding: 16px 20px; overflow-y: auto"
+        ></div>
+      </div>
+    </div>
+
+    <!-- مدال افزودن گروه (استخراج + نمایش زنده + مدیریت گروه‌های مانیتورشونده) -->
     <div
       id="addGroupModalOverlay"
       class="modal-overlay"
@@ -1553,8 +1684,7 @@
           <div class="add-group-hint">
             کانال‌های مبدایی که در سه روز اخیر این گروه فوروارد شده‌اند به‌صورت
             خودکار استخراج و به لیست کانال‌ها اضافه می‌شوند. پس از این استخراج
-            اولیه، این گروه هر روز به‌صورت خودکار برای کانال‌های تازه چک می‌شود
-            — بدون نیاز به تکرار دستی.
+            اولیه، این گروه هر روز به‌صورت خودکار برای کانال‌های تازه چک می‌شود.
           </div>
           <button onclick="startGroupExtraction()">🔎 استخراج کانال</button>
           <div class="add-group-error" id="addGroupError"></div>
@@ -1565,23 +1695,43 @@
             شروع به استخراج کانال‌های غیرتکراری...
           </div>
         </div>
+        <div class="live-progress-list" id="liveProgressList"></div>
         <div
           class="add-group-result"
           id="addGroupResult"
           style="display: none"
         ></div>
 
-        <div class="extraction-history-section">
-          <div class="extraction-history-header">
-            <h3>📅 تاریخچه‌ی استخراج خودکار روزانه</h3>
-            <select
-              id="monitoredGroupSelect"
-              class="monitored-group-select"
-              onchange="loadExtractionHistory()"
-            ></select>
+        <div class="monitored-groups-section">
+          <div class="monitored-groups-header">
+            <h3>📡 گروه‌های مانیتورشونده (اسکن خودکار روزانه)</h3>
+            <button class="secondary tiny" onclick="openDailyReportModal()">
+              📅 گزارش استخراج روزانه
+            </button>
           </div>
-          <div id="extractionHistoryList"></div>
+          <div id="monitoredGroupsList"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- مدال مجزا: گزارش استخراج روزانه -->
+    <div
+      id="dailyReportModalOverlay"
+      class="modal-overlay"
+      onclick="closeDailyReportModalOnOverlay(event)"
+    >
+      <div class="modal-box" style="max-width: 560px">
+        <div class="modal-header">
+          <h2>📅 گزارش استخراج روزانه</h2>
+          <button onclick="closeDailyReportModal()">✕ بستن</button>
+        </div>
+        <div class="daily-report-header">
+          <select
+            id="dailyReportGroupSelect"
+            onchange="loadDailyReport()"
+          ></select>
+        </div>
+        <div id="dailyReportList"></div>
       </div>
     </div>
 
@@ -1661,7 +1811,7 @@
       </div>
     </div>
 
-    <!-- مدال هشدارهای قیمت (مدیریت قانون‌ها) -->
+    <!-- مدال هشدارهای قیمت -->
     <div
       id="alertsModalOverlay"
       class="modal-overlay"
@@ -1676,7 +1826,6 @@
           <div class="alerts-form-row">
             <select id="alertCarNameSelect"></select>
           </div>
-
           <div class="price-mode-tabs">
             <div
               class="price-mode-tab active"
@@ -1700,7 +1849,6 @@
               بیشتر از
             </div>
           </div>
-
           <div class="price-mode-fields">
             <div class="field-col" id="fieldMinWrap">
               <input
@@ -1723,7 +1871,6 @@
               <div class="price-words-hint" id="alertMaxPriceWords"></div>
             </div>
           </div>
-
           <div class="alerts-form-hint">
             قیمت را به تومان کامل وارد کن (مثلاً 1805000000).
           </div>
@@ -1756,6 +1903,7 @@
       const ROWS_PER_PAGE = 10;
       const ALERT_CHECK_INTERVAL_MS = 15000;
       const ACCOUNT_STATUS_REFRESH_MS = 20000;
+      const EXTRACTION_PROGRESS_POLL_MS = 2000;
 
       let REFRESH_INTERVAL_MS =
         parseInt(localStorage.getItem(REFRESH_INTERVAL_STORAGE_KEY), 10) ||
@@ -1763,9 +1911,12 @@
       let refreshTimer = null;
       let alertCheckTimer = null;
       let accountStatusTimer = null;
+      let extractionProgressTimer = null;
       let currentHoursFilter = 24;
       let tableSearchDebounceTimeout = null;
-      let currentAlertPriceMode = "range"; // "range" | "below" | "above"
+      let currentAlertPriceMode = "range";
+      let currentExtractionRunId = null;
+      let shownProgressIds = new Set();
 
       let allAnalyticsData = [];
       let visibleAnalyticsData = [];
@@ -1776,12 +1927,15 @@
       let modalOpenTrim = null;
       let allChannels = [];
       let channelPreviewTimeout = null;
+
       let currentNoPriceAds = [];
+      let currentWantedAds = [];
+      let currentWantedAdsPage = 1;
       let currentUsedCars = [];
+      let currentUsedCarsPage = 1;
 
       let selectedModels = new Set();
 
-      // ---------- سایدبار به‌صورت drawer ----------
       function openSidebarDrawer() {
         document.getElementById("sidebarDrawer").classList.add("open");
         document.getElementById("sidebarScrim").classList.add("open");
@@ -1805,7 +1959,6 @@
         }
       }
 
-      // ---------- تبدیل عدد به معادل فارسی (میلیارد/میلیون) ----------
       function toPersianPriceWords(amount) {
         if (!amount || amount <= 0) return "";
         const billions = Math.floor(amount / 1000000000);
@@ -1813,7 +1966,6 @@
         const millions = Math.floor(afterBillions / 1000000);
         const afterMillions = afterBillions % 1000000;
         const thousands = Math.floor(afterMillions / 1000);
-
         const parts = [];
         if (billions > 0)
           parts.push(`${billions.toLocaleString("fa-IR")} میلیارد`);
@@ -1821,13 +1973,11 @@
           parts.push(`${millions.toLocaleString("fa-IR")} میلیون`);
         if (billions === 0 && millions === 0 && thousands > 0)
           parts.push(`${thousands.toLocaleString("fa-IR")} هزار`);
-
         if (parts.length === 0)
           return `${amount.toLocaleString("fa-IR")} تومان`;
         return parts.join(" و ") + " تومان";
       }
 
-      // ---------- فرمت زنده‌ی اینپوت‌های عددی با جداکننده ----------
       function formatNumberInputLive(inputEl) {
         const raw = inputEl.value.replace(/[^\d]/g, "");
         if (!raw) {
@@ -1840,11 +1990,13 @@
       }
 
       function onPriceFilterInput(inputEl) {
-        const num = formatNumberInputLive(inputEl);
-        const minEl = document.getElementById("filterPriceMin");
-        const maxEl = document.getElementById("filterPriceMax");
-        const minRaw = minEl.value.replace(/[^\d]/g, "");
-        const maxRaw = maxEl.value.replace(/[^\d]/g, "");
+        formatNumberInputLive(inputEl);
+        const minRaw = document
+          .getElementById("filterPriceMin")
+          .value.replace(/[^\d]/g, "");
+        const maxRaw = document
+          .getElementById("filterPriceMax")
+          .value.replace(/[^\d]/g, "");
         const hintEl = document.getElementById("priceFilterWordsHint");
         const parts = [];
         if (minRaw)
@@ -1869,10 +2021,8 @@
           : "";
       }
 
-      // ---------- انتخاب حالت هشدار قیمت (بین دو قیمت / کمتر از / بیشتر از) ----------
       function setAlertPriceMode(mode) {
         currentAlertPriceMode = mode;
-
         document
           .getElementById("tabRange")
           .classList.toggle("active", mode === "range");
@@ -1882,26 +2032,22 @@
         document
           .getElementById("tabAbove")
           .classList.toggle("active", mode === "above");
-
         const minWrap = document.getElementById("fieldMinWrap");
         const maxWrap = document.getElementById("fieldMaxWrap");
         const minInput = document.getElementById("alertMinPrice");
         const maxInput = document.getElementById("alertMaxPrice");
-
         if (mode === "range") {
           minWrap.classList.remove("hidden");
           maxWrap.classList.remove("hidden");
           minInput.placeholder = "حداقل قیمت (تومان)";
           maxInput.placeholder = "حداکثر قیمت (تومان)";
         } else if (mode === "below") {
-          // «کمتر از فلان قیمت» یعنی فقط سقف (max_price) لازم است
           minWrap.classList.add("hidden");
           maxWrap.classList.remove("hidden");
           minInput.value = "";
           document.getElementById("alertMinPriceWords").textContent = "";
           maxInput.placeholder = "کمتر از چه قیمتی (تومان)";
         } else if (mode === "above") {
-          // «بیشتر از فلان قیمت» یعنی فقط کف (min_price) لازم است
           minWrap.classList.remove("hidden");
           maxWrap.classList.add("hidden");
           maxInput.value = "";
@@ -1910,7 +2056,6 @@
         }
       }
 
-      // ---------- ساعت و تاریخ شمسی زنده ----------
       const PERSIAN_WEEKDAYS = [
         "یکشنبه",
         "دوشنبه",
@@ -1948,7 +2093,6 @@
           Math.floor((gy2 + 399) / 400) +
           gd +
           g_days_in_month.slice(0, gm - 1).reduce((a, b) => a + b, 0);
-
         let jy = -1595 + 33 * Math.floor(days / 12053);
         days %= 12053;
         jy += 4 * Math.floor(days / 1461);
@@ -1957,7 +2101,6 @@
           jy += Math.floor((days - 1) / 365);
           days = (days - 1) % 365;
         }
-
         let jm, jd;
         if (days < 186) {
           jm = 1 + Math.floor(days / 31);
@@ -1966,7 +2109,6 @@
           jm = 7 + Math.floor((days - 186) / 30);
           jd = 1 + ((days - 186) % 30);
         }
-
         return { jy, jm, jd };
       }
 
@@ -1997,7 +2139,6 @@
         document.getElementById(
           "liveClockTime"
         ).textContent = `${hh}:${mm}:${ss}`;
-
         const { jy, jm, jd } = gregorianToJalali(
           now.getFullYear(),
           now.getMonth() + 1,
@@ -2005,13 +2146,13 @@
         );
         const weekday = PERSIAN_WEEKDAYS[now.getDay()];
         const monthName = PERSIAN_MONTHS[jm - 1];
-        const dateText = `${weekday}، ${toPersianDigits(
+        document.getElementById(
+          "liveClockDate"
+        ).textContent = `${weekday}، ${toPersianDigits(
           jd
         )} ${monthName} ${toPersianDigits(jy)}`;
-        document.getElementById("liveClockDate").textContent = dateText;
       }
 
-      // ---------- وضعیت زنده‌ی اکانت (تعداد عضویت‌ها) ----------
       async function loadAccountStatus() {
         try {
           const res = await fetch("/api/car-ads-account-status");
@@ -2021,11 +2162,11 @@
             textEl.textContent = "وضعیت اکانت هنوز در دسترس نیست";
             return;
           }
-          textEl.innerHTML =
-            `اکانت <span class="account-username">@${json.username}</span> — عضو ` +
-            `<span class="account-count">${(
-              json.channel_count || 0
-            ).toLocaleString("fa-IR")}</span> کانال/گروه`;
+          textEl.innerHTML = `اکانت <span class="account-username">@${
+            json.username
+          }</span> — عضو <span class="account-count">${(
+            json.channel_count || 0
+          ).toLocaleString("fa-IR")}</span> کانال/گروه`;
         } catch (err) {
           document.getElementById("accountStatusText").textContent =
             "خطا در دریافت وضعیت اکانت";
@@ -2041,7 +2182,6 @@
         );
       }
 
-      // ---------- فیلتر ساعتی ----------
       function onHoursFilterChange() {
         currentHoursFilter = parseInt(
           document.getElementById("hoursFilterSelect").value,
@@ -2051,7 +2191,6 @@
         load();
       }
 
-      // ---------- جدول قیمت‌ها ----------
       async function load() {
         const tbody = document.querySelector("#result tbody");
         const searchTerm = document.getElementById("searchTable").value.trim();
@@ -2060,23 +2199,17 @@
           if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
           const res = await fetch(url);
           const json = await res.json();
-
           if (json.error) {
             tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">❌ ${json.error}</td></tr>`;
             return;
           }
-
           allAnalyticsData = json.data;
           visibleAnalyticsData = allAnalyticsData.filter(
             (item) => item.priced_ads > 0
           );
-
           renderModelCheckboxList();
           renderTable();
-
-          if (modalOpenCarName) {
-            refreshModal(modalOpenCarName, modalOpenTrim);
-          }
+          if (modalOpenCarName) refreshModal(modalOpenCarName, modalOpenTrim);
         } catch (err) {
           tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">❌ خطا در دریافت اطلاعات: ${err.message}</td></tr>`;
         }
@@ -2093,27 +2226,22 @@
           .getElementById("modelSearchBox")
           .value.trim()
           .toLowerCase();
-
         const uniqueModels = Array.from(
           new Set(visibleAnalyticsData.map((item) => item.display_name))
         ).sort((a, b) => a.localeCompare(b, "fa"));
-
         const filteredModels = q
           ? uniqueModels.filter((name) => name.toLowerCase().includes(q))
           : uniqueModels;
         container.innerHTML = "";
-
         if (filteredModels.length === 0) {
           container.innerHTML =
             '<div class="model-checkbox-empty">مدلی پیدا نشد</div>';
           return;
         }
-
         filteredModels.forEach((name, idx) => {
           const checkboxId = `modelCheckbox_${idx}`;
           const wrap = document.createElement("div");
           wrap.className = "model-checkbox-item";
-
           const checkbox = document.createElement("input");
           checkbox.type = "checkbox";
           checkbox.id = checkboxId;
@@ -2124,11 +2252,9 @@
             currentPage = 1;
             renderTable();
           };
-
           const label = document.createElement("label");
           label.setAttribute("for", checkboxId);
           label.textContent = name;
-
           wrap.appendChild(checkbox);
           wrap.appendChild(label);
           container.appendChild(wrap);
@@ -2149,10 +2275,8 @@
 
       function getFilteredData() {
         let data = visibleAnalyticsData;
-
         if (selectedModels.size > 0)
           data = data.filter((item) => selectedModels.has(item.display_name));
-
         const minRaw = document
           .getElementById("filterPriceMin")
           .value.replace(/[^\d]/g, "");
@@ -2161,7 +2285,6 @@
           .value.replace(/[^\d]/g, "");
         const minToman = minRaw ? parseInt(minRaw, 10) * 1000000 : null;
         const maxToman = maxRaw ? parseInt(maxRaw, 10) * 1000000 : null;
-
         if (minToman !== null || maxToman !== null) {
           data = data.filter((item) => {
             if (item.min_price === null || item.min_price === undefined)
@@ -2171,7 +2294,6 @@
             return true;
           });
         }
-
         return data;
       }
 
@@ -2183,12 +2305,9 @@
           Math.ceil(filtered.length / ROWS_PER_PAGE)
         );
         currentPage = Math.min(Math.max(1, currentPage), totalPages);
-
         const startIdx = (currentPage - 1) * ROWS_PER_PAGE;
         const pageItems = filtered.slice(startIdx, startIdx + ROWS_PER_PAGE);
-
         tbody.innerHTML = "";
-
         if (pageItems.length === 0) {
           tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">نتیجه‌ای پیدا نشد</td></tr>`;
         } else {
@@ -2211,12 +2330,10 @@
             tbody.appendChild(tr);
           });
         }
-
         document.getElementById("resultCount").textContent =
           filtered.length > 0
             ? `${filtered.length.toLocaleString("fa-IR")} نتیجه`
             : "";
-
         renderPagination(filtered.length, totalPages);
       }
 
@@ -2226,7 +2343,6 @@
           container.innerHTML = "";
           return;
         }
-
         container.innerHTML = `
         <span class="pagination-info">صفحه ${currentPage.toLocaleString(
           "fa-IR"
@@ -2240,7 +2356,6 @@
           }>بعدی</button>
         </div>
       `;
-
         document.getElementById("prevPageBtn").onclick = () => {
           currentPage--;
           renderTable();
@@ -2259,7 +2374,6 @@
         }, TABLE_SEARCH_DEBOUNCE_MS);
       }
 
-      // ---------- مدال جزئیات هر مدل ----------
       async function openModal(carName, trim, displayName) {
         modalOpenCarName = carName;
         modalOpenTrim = trim || null;
@@ -2280,20 +2394,17 @@
           if (trim) url += `&trim=${encodeURIComponent(trim)}`;
           const res = await fetch(url);
           const json = await res.json();
-
           if (json.error) {
             document.getElementById("modalMeta").textContent =
               "❌ " + json.error;
             return;
           }
-
           const pricedAds = (json.data || []).filter(
             (ad) => ad.price_amount !== null && ad.price_amount !== undefined
           );
           pricedAds.sort((a, b) => a.price_amount - b.price_amount);
           currentModalAds = pricedAds;
           filterModalAds();
-
           let metaText = `${currentModalAds.length.toLocaleString(
             "fa-IR"
           )} آگهی با قیمت مشخص`;
@@ -2315,25 +2426,21 @@
       function renderModalAds(ads) {
         const list = document.getElementById("modalList");
         list.innerHTML = "";
-
         if (ads.length === 0) {
           list.innerHTML = '<div class="empty">آگهی‌ای پیدا نشد</div>';
           return;
         }
-
         const allPrices = currentModalAds
           .map((a) => a.price_amount)
           .filter((p) => p !== null && p !== undefined);
         const minPrice = allPrices.length ? Math.min(...allPrices) : null;
         const maxPrice = allPrices.length ? Math.max(...allPrices) : null;
-
         ads.forEach((ad) => {
           const priceText = ad.price_amount
             ? formatToman(ad.price_amount)
             : ad.price_label
             ? ad.price_label
             : '<span class="no-price">بدون قیمت مشخص</span>';
-
           let badge = "";
           if (ad.price_amount !== null && ad.price_amount !== undefined) {
             if (minPrice === maxPrice)
@@ -2344,7 +2451,6 @@
             else if (ad.price_amount === maxPrice)
               badge = '<span class="price-badge max">🔺 بیشترین قیمت</span>';
           }
-
           const detailsParts = [];
           if (ad.color) detailsParts.push("رنگ: " + ad.color);
           if (ad.trim) detailsParts.push("تیپ: " + ad.trim);
@@ -2355,16 +2461,13 @@
               "کارکرد: " + ad.mileage_km.toLocaleString("fa-IR") + " کیلومتر"
             );
           if (ad.city) detailsParts.push("شهر: " + ad.city);
-
           const card = document.createElement("div");
           card.className = "ad-card";
           card.innerHTML = `
-          <div class="ad-row">
-            <div class="price-group"><strong>${priceText}</strong>${badge}</div>
+          <div class="ad-row"><div class="price-group"><strong>${priceText}</strong>${badge}</div>
             <a href="${
               ad.telegram_link
-            }" target="_blank" rel="noopener" class="ad-link">مشاهده در تلگرام ↗</a>
-          </div>
+            }" target="_blank" rel="noopener" class="ad-link">مشاهده در تلگرام ↗</a></div>
           ${
             detailsParts.length
               ? `<div class="ad-details">${detailsParts.join(" — ")}</div>`
@@ -2421,30 +2524,202 @@
         if (event.target.id === "modalOverlay") closeModal();
       }
 
-      // ---------- کارت‌ ساده‌ی آگهی (خریدارم / بدون قیمت) ----------
-      function renderSimpleAdCard(ad) {
+      // ---------- پیش‌نمایش زنده‌ی نام کانال + افزودن ----------
+      function onChannelInputChange() {
+        clearTimeout(channelPreviewTimeout);
+        const username = document
+          .getElementById("newChannelInput")
+          .value.trim()
+          .replace(/^@/, "");
+        const previewEl = document.getElementById("channelPreview");
+        if (!username) {
+          previewEl.textContent = "";
+          previewEl.className = "channel-preview";
+          return;
+        }
+        previewEl.textContent = "در حال جستجو...";
+        previewEl.className = "channel-preview loading";
+        channelPreviewTimeout = setTimeout(async () => {
+          try {
+            const res = await fetch(
+              `/api/car-ads-channel-preview?username=${encodeURIComponent(
+                username
+              )}`
+            );
+            const json = await res.json();
+            if (json.found) {
+              previewEl.textContent = "✅ " + json.title;
+              previewEl.className = "channel-preview found";
+            } else {
+              previewEl.textContent = "❌ کانالی با این نام پیدا نشد";
+              previewEl.className = "channel-preview not-found";
+            }
+          } catch (err) {
+            previewEl.textContent = "";
+            previewEl.className = "channel-preview";
+          }
+        }, CHANNEL_PREVIEW_DEBOUNCE_MS);
+      }
+
+      function onChannelInputKeydown(event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          addChannel();
+        }
+      }
+
+      async function addChannel() {
+        const input = document.getElementById("newChannelInput");
+        const previewEl = document.getElementById("channelPreview");
+        const username = input.value.trim().replace(/^@/, "");
+        if (!username) return;
+        try {
+          const res = await fetch("/api/car-ads-channels", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username }),
+          });
+          const json = await res.json();
+          if (json.status === "duplicate") {
+            previewEl.textContent =
+              "⚠️ این کانال تکراری است — از قبل اضافه شده";
+            previewEl.className = "channel-preview duplicate";
+            return;
+          }
+          input.value = "";
+          previewEl.textContent = "";
+          previewEl.className = "channel-preview";
+          if (
+            document.getElementById("channelsModalOverlay").style.display ===
+            "flex"
+          )
+            await loadChannelsModal();
+        } catch (err) {
+          previewEl.textContent = "❌ خطا در افزودن کانال";
+          previewEl.className = "channel-preview not-found";
+        }
+      }
+
+      async function openChannelsModal() {
+        document.getElementById("searchChannelsModal").value = "";
+        document.getElementById("channelsModalOverlay").style.display = "flex";
+        await loadChannelsModal();
+      }
+
+      async function loadChannelsModal() {
+        const list = document.getElementById("channelsModalList");
+        list.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
+        try {
+          const res = await fetch("/api/car-ads-channels");
+          const json = await res.json();
+          allChannels = json.data || [];
+          filterChannelsModal();
+        } catch (err) {
+          list.innerHTML = `<div class="empty">❌ خطا: ${err.message}</div>`;
+        }
+      }
+
+      function filterChannelsModal() {
+        const q = document
+          .getElementById("searchChannelsModal")
+          .value.trim()
+          .toLowerCase();
+        const filtered = allChannels.filter((ch) =>
+          ch.username.toLowerCase().includes(q)
+        );
+        renderChannelsModal(filtered);
+      }
+
+      function renderChannelsModal(channels) {
+        const list = document.getElementById("channelsModalList");
+        list.innerHTML = "";
+        const activeCount = allChannels.filter((ch) => ch.active).length;
+        document.getElementById("channelsModalMeta").textContent =
+          `${allChannels.length.toLocaleString(
+            "fa-IR"
+          )} کانال کل — ${activeCount.toLocaleString("fa-IR")} فعال` +
+          (channels.length !== allChannels.length
+            ? ` — ${channels.length.toLocaleString("fa-IR")} نتیجه‌ی جستجو`
+            : "");
+        if (channels.length === 0) {
+          list.innerHTML = '<div class="empty">کانالی پیدا نشد</div>';
+          return;
+        }
+        channels.forEach((ch, idx) => {
+          const row = document.createElement("div");
+          row.className = "channel-row";
+          const rowNum = document.createElement("span");
+          rowNum.className = "channel-row-num";
+          rowNum.textContent = (idx + 1).toLocaleString("fa-IR");
+          const nameSpan = document.createElement("span");
+          nameSpan.className = "channel-name";
+          nameSpan.textContent = "@" + ch.username;
+          nameSpan.title = "@" + ch.username;
+          const statusSpan = document.createElement("span");
+          statusSpan.className = `channel-status ${
+            ch.active ? "active" : "inactive"
+          }`;
+          statusSpan.textContent = ch.active ? "فعال" : "غیرفعال";
+          const btn = document.createElement("button");
+          btn.textContent = ch.active ? "حذف" : "فعال‌سازی";
+          btn.onclick = async () => {
+            if (ch.active)
+              await fetch(
+                `/api/car-ads-channels/${encodeURIComponent(ch.username)}`,
+                { method: "DELETE" }
+              );
+            else
+              await fetch("/api/car-ads-channels", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: ch.username }),
+              });
+            await loadChannelsModal();
+          };
+          row.appendChild(rowNum);
+          row.appendChild(nameSpan);
+          row.appendChild(statusSpan);
+          row.appendChild(btn);
+          list.appendChild(row);
+        });
+      }
+
+      function closeChannelsModal() {
+        document.getElementById("channelsModalOverlay").style.display = "none";
+      }
+      function closeChannelsModalOnOverlay(event) {
+        if (event.target.id === "channelsModalOverlay") closeChannelsModal();
+      }
+
+      // ---------- مودال جزئیات مشترک (متن کامل پیام) ----------
+      function openAdDetailModal(ad, titlePrefix) {
+        document.getElementById("adDetailTitle").textContent =
+          titlePrefix || "جزئیات آگهی";
+        const body = document.getElementById("adDetailBody");
+
         const priceText = ad.price_amount
           ? formatToman(ad.price_amount)
           : ad.price_label
           ? ad.price_label
           : '<span class="no-price">بدون قیمت مشخص</span>';
-
         const detailsParts = [];
         if (ad.car_name) detailsParts.push("مدل: " + ad.car_name);
         if (ad.color) detailsParts.push("رنگ: " + ad.color);
         if (ad.trim) detailsParts.push("تیپ: " + ad.trim);
         if (ad.production_year) detailsParts.push("سال: " + ad.production_year);
+        if (ad.mileage_km)
+          detailsParts.push(
+            "کارکرد: " + ad.mileage_km.toLocaleString("fa-IR") + " کیلومتر"
+          );
         if (ad.city) detailsParts.push("شهر: " + ad.city);
 
-        const card = document.createElement("div");
-        card.className = "ad-card";
-        card.innerHTML = `
-        <div class="ad-row">
-          <div class="price-group"><strong>${priceText}</strong></div>
-          <a href="${
+        body.innerHTML = `
+        <div class="ad-row"><div class="price-group"><strong>${priceText}</strong></div>
+          ${
             ad.telegram_link
-          }" target="_blank" rel="noopener" class="ad-link">مشاهده در تلگرام ↗</a>
-        </div>
+              ? `<a href="${ad.telegram_link}" target="_blank" rel="noopener" class="ad-link">مشاهده در تلگرام ↗</a>`
+              : ""
+          }</div>
         ${
           detailsParts.length
             ? `<div class="ad-details">${detailsParts.join(" — ")}</div>`
@@ -2453,51 +2728,24 @@
         ${ad.phone ? `<div class="ad-phone">📞 ${ad.phone}</div>` : ""}
         ${ad.notes ? `<div class="ad-notes">${ad.notes}</div>` : ""}
         ${
-          ad.message_text ? `<div class="ad-text">${ad.message_text}</div>` : ""
+          ad.message_text
+            ? `<div class="ad-text">${ad.message_text}</div>`
+            : '<div class="empty">متن پیامی ثبت نشده</div>'
         }
         <div class="ad-date">${formatDate(
           ad.telegram_date || ad.created_at
         )}</div>
       `;
-        return card;
+        document.getElementById("adDetailModalOverlay").style.display = "flex";
+      }
+      function closeAdDetailModal() {
+        document.getElementById("adDetailModalOverlay").style.display = "none";
+      }
+      function closeAdDetailModalOnOverlay(event) {
+        if (event.target.id === "adDetailModalOverlay") closeAdDetailModal();
       }
 
-      async function openWantedAdsModal() {
-        document.getElementById("modalMetaWanted").textContent =
-          "در حال بارگذاری...";
-        document.getElementById("wantedAdsList").innerHTML = "";
-        document.getElementById("wantedAdsModalOverlay").style.display = "flex";
-        try {
-          const res = await fetch("/api/car-ads-wanted-ads");
-          const json = await res.json();
-          if (json.error) {
-            document.getElementById("modalMetaWanted").textContent =
-              "❌ " + json.error;
-            return;
-          }
-          document.getElementById(
-            "modalMetaWanted"
-          ).textContent = `${json.count.toLocaleString("fa-IR")} آگهی خریدارم`;
-          const list = document.getElementById("wantedAdsList");
-          list.innerHTML = "";
-          if (json.data.length === 0) {
-            list.innerHTML =
-              '<div class="empty">هیچ آگهی «خریدارم»ی پیدا نشد</div>';
-            return;
-          }
-          json.data.forEach((ad) => list.appendChild(renderSimpleAdCard(ad)));
-        } catch (err) {
-          document.getElementById("modalMetaWanted").textContent =
-            "❌ خطا: " + err.message;
-        }
-      }
-      function closeWantedAdsModal() {
-        document.getElementById("wantedAdsModalOverlay").style.display = "none";
-      }
-      function closeWantedAdsModalOnOverlay(event) {
-        if (event.target.id === "wantedAdsModalOverlay") closeWantedAdsModal();
-      }
-
+      // ---------- مودال آگهی‌های بدون قیمت ----------
       async function openNoPriceAdsModal() {
         document.getElementById("searchNoPriceModal").value = "";
         document.getElementById("modalMetaNoPrice").textContent =
@@ -2532,7 +2780,26 @@
           list.innerHTML = '<div class="empty">آگهی‌ای پیدا نشد</div>';
           return;
         }
-        ads.forEach((ad) => list.appendChild(renderSimpleAdCard(ad)));
+        ads.forEach((ad) => {
+          const card = document.createElement("div");
+          card.className = "ad-card";
+          card.style.cursor = "pointer";
+          card.onclick = () => openAdDetailModal(ad, "جزئیات آگهی بدون قیمت");
+          const priceText = ad.price_label
+            ? ad.price_label
+            : '<span class="no-price">بدون قیمت مشخص</span>';
+          card.innerHTML = `
+          <div class="ad-row"><div class="price-group"><strong>${priceText}</strong></div></div>
+          <div class="ad-details">${ad.car_name || "—"}${
+            ad.city ? " — " + ad.city : ""
+          }</div>
+          ${ad.phone ? `<div class="ad-phone">📞 ${ad.phone}</div>` : ""}
+          <div class="ad-date">${formatDate(
+            ad.telegram_date || ad.created_at
+          )}</div>
+        `;
+          list.appendChild(card);
+        });
       }
       function filterNoPriceAds() {
         const q = document
@@ -2570,12 +2837,13 @@
           closeNoPriceAdsModal();
       }
 
-      // ---------- مدال خودروهای کارکرده ----------
+      // ---------- مودال خودروهای کارکرده (جدولی + صفحه‌بندی + جزئیات) ----------
       async function openUsedCarsModal() {
         document.getElementById("searchUsedCarsModal").value = "";
         document.getElementById("modalMetaUsedCars").textContent =
           "در حال بارگذاری...";
         document.querySelector("#usedCarsTable tbody").innerHTML = "";
+        currentUsedCarsPage = 1;
         document.getElementById("usedCarsModalOverlay").style.display = "flex";
         try {
           const res = await fetch(
@@ -2602,45 +2870,57 @@
 
       function renderUsedCarsTable(cars) {
         const tbody = document.querySelector("#usedCarsTable tbody");
+        const totalPages = Math.max(1, Math.ceil(cars.length / ROWS_PER_PAGE));
+        currentUsedCarsPage = Math.min(
+          Math.max(1, currentUsedCarsPage),
+          totalPages
+        );
+        const startIdx = (currentUsedCarsPage - 1) * ROWS_PER_PAGE;
+        const pageItems = cars.slice(startIdx, startIdx + ROWS_PER_PAGE);
         tbody.innerHTML = "";
-        if (cars.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="10" class="empty-cell">آگهی کارکرده‌ای پیدا نشد</td></tr>`;
-          return;
+        if (pageItems.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="9" class="empty-cell">آگهی کارکرده‌ای پیدا نشد</td></tr>`;
+        } else {
+          pageItems.forEach((ad, i) => {
+            const tr = document.createElement("tr");
+            tr.onclick = () => openAdDetailModal(ad, "جزئیات خودروی کارکرده");
+            tr.innerHTML = `
+            <td class="row-num">${(startIdx + i + 1).toLocaleString(
+              "fa-IR"
+            )}</td>
+            <td>${ad.car_name || "—"}</td>
+            <td>${formatToman(ad.price_amount)}</td>
+            <td>${ad.color || "—"}</td>
+            <td>${ad.trim || "—"}</td>
+            <td>${ad.production_year || "—"}</td>
+            <td>${
+              ad.mileage_km ? ad.mileage_km.toLocaleString("fa-IR") : "—"
+            }</td>
+            <td>${ad.city || "—"}</td>
+            <td>${ad.phone || "—"}</td>
+          `;
+            tbody.appendChild(tr);
+          });
         }
-        cars.forEach((ad, i) => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-          <td class="row-num">${(i + 1).toLocaleString("fa-IR")}</td>
-          <td>${ad.car_name || "—"}</td>
-          <td>${formatToman(ad.price_amount)}</td>
-          <td>${ad.color || "—"}</td>
-          <td>${ad.trim || "—"}</td>
-          <td>${ad.production_year || "—"}</td>
-          <td>${
-            ad.mileage_km ? ad.mileage_km.toLocaleString("fa-IR") : "—"
-          }</td>
-          <td>${ad.city || "—"}</td>
-          <td>${ad.phone || "—"}</td>
-          <td>${
-            ad.telegram_link
-              ? `<a href="${ad.telegram_link}" target="_blank" rel="noopener" class="ad-link">مشاهده ↗</a>`
-              : "—"
-          }</td>
-        `;
-          tbody.appendChild(tr);
-        });
+        renderGenericPagination(
+          "usedCarsPagination",
+          cars.length,
+          totalPages,
+          currentUsedCarsPage,
+          (p) => {
+            currentUsedCarsPage = p;
+            renderUsedCarsTable(getFilteredUsedCars());
+          }
+        );
       }
 
-      function filterUsedCars() {
+      function getFilteredUsedCars() {
         const q = document
           .getElementById("searchUsedCarsModal")
           .value.trim()
           .toLowerCase();
-        if (!q) {
-          renderUsedCarsTable(currentUsedCars);
-          return;
-        }
-        const filtered = currentUsedCars.filter((ad) => {
+        if (!q) return currentUsedCars;
+        return currentUsedCars.filter((ad) => {
           const haystack = [
             ad.car_name,
             ad.color,
@@ -2655,7 +2935,11 @@
             .toLowerCase();
           return haystack.includes(q);
         });
-        renderUsedCarsTable(filtered);
+      }
+
+      function filterUsedCars() {
+        currentUsedCarsPage = 1;
+        renderUsedCarsTable(getFilteredUsedCars());
       }
 
       function closeUsedCarsModal() {
@@ -2665,86 +2949,201 @@
         if (event.target.id === "usedCarsModalOverlay") closeUsedCarsModal();
       }
 
-      // ---------- افزودن گروه (استخراج خودکار کانال + تاریخچه) ----------
+      // ---------- مودال آگهی‌های خریدارم (جدولی + صفحه‌بندی + جزئیات) ----------
+      async function openWantedAdsModal() {
+        document.getElementById("searchWantedAdsModal").value = "";
+        document.getElementById("modalMetaWanted").textContent =
+          "در حال بارگذاری...";
+        document.querySelector("#wantedAdsTable tbody").innerHTML = "";
+        currentWantedAdsPage = 1;
+        document.getElementById("wantedAdsModalOverlay").style.display = "flex";
+        try {
+          const res = await fetch("/api/car-ads-wanted-ads");
+          const json = await res.json();
+          if (json.error) {
+            document.getElementById("modalMetaWanted").textContent =
+              "❌ " + json.error;
+            return;
+          }
+          currentWantedAds = json.data || [];
+          document.getElementById(
+            "modalMetaWanted"
+          ).textContent = `${currentWantedAds.length.toLocaleString(
+            "fa-IR"
+          )} آگهی خریدارم`;
+          renderWantedAdsTable(currentWantedAds);
+        } catch (err) {
+          document.getElementById("modalMetaWanted").textContent =
+            "❌ خطا: " + err.message;
+        }
+      }
+
+      function renderWantedAdsTable(ads) {
+        const tbody = document.querySelector("#wantedAdsTable tbody");
+        const totalPages = Math.max(1, Math.ceil(ads.length / ROWS_PER_PAGE));
+        currentWantedAdsPage = Math.min(
+          Math.max(1, currentWantedAdsPage),
+          totalPages
+        );
+        const startIdx = (currentWantedAdsPage - 1) * ROWS_PER_PAGE;
+        const pageItems = ads.slice(startIdx, startIdx + ROWS_PER_PAGE);
+        tbody.innerHTML = "";
+        if (pageItems.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">آگهی «خریدارم»ی پیدا نشد</td></tr>`;
+        } else {
+          pageItems.forEach((ad, i) => {
+            const tr = document.createElement("tr");
+            tr.onclick = () => openAdDetailModal(ad, "جزئیات آگهی خریدارم");
+            const priceText = ad.price_amount
+              ? formatToman(ad.price_amount)
+              : ad.price_label || "—";
+            tr.innerHTML = `
+            <td class="row-num">${(startIdx + i + 1).toLocaleString(
+              "fa-IR"
+            )}</td>
+            <td>${ad.car_name || "—"}</td>
+            <td>${priceText}</td>
+            <td>${ad.color || "—"}</td>
+            <td>${ad.production_year || "—"}</td>
+            <td>${ad.city || "—"}</td>
+            <td>${ad.phone || "—"}</td>
+          `;
+            tbody.appendChild(tr);
+          });
+        }
+        renderGenericPagination(
+          "wantedAdsPagination",
+          ads.length,
+          totalPages,
+          currentWantedAdsPage,
+          (p) => {
+            currentWantedAdsPage = p;
+            renderWantedAdsTable(getFilteredWantedAds());
+          }
+        );
+      }
+
+      function getFilteredWantedAds() {
+        const q = document
+          .getElementById("searchWantedAdsModal")
+          .value.trim()
+          .toLowerCase();
+        if (!q) return currentWantedAds;
+        return currentWantedAds.filter((ad) => {
+          const haystack = [
+            ad.car_name,
+            ad.phone,
+            ad.color,
+            ad.notes,
+            ad.message_text,
+            ad.city,
+            ad.price_label,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(q);
+        });
+      }
+
+      function filterWantedAds() {
+        currentWantedAdsPage = 1;
+        renderWantedAdsTable(getFilteredWantedAds());
+      }
+
+      function closeWantedAdsModal() {
+        document.getElementById("wantedAdsModalOverlay").style.display = "none";
+      }
+      function closeWantedAdsModalOnOverlay(event) {
+        if (event.target.id === "wantedAdsModalOverlay") closeWantedAdsModal();
+      }
+
+      // ---------- کمکی: صفحه‌بندی عمومی برای مودال‌های جدولی ----------
+      function renderGenericPagination(
+        containerId,
+        totalCount,
+        totalPages,
+        page,
+        onPageChange
+      ) {
+        const container = document.getElementById(containerId);
+        if (totalCount === 0) {
+          container.innerHTML = "";
+          return;
+        }
+        container.innerHTML = `
+        <span class="pagination-info">صفحه ${page.toLocaleString(
+          "fa-IR"
+        )} از ${totalPages.toLocaleString("fa-IR")}</span>
+        <div class="pagination-buttons">
+          <button id="${containerId}_prev" ${
+          page <= 1 ? "disabled" : ""
+        }>قبلی</button>
+          <button id="${containerId}_next" ${
+          page >= totalPages ? "disabled" : ""
+        }>بعدی</button>
+        </div>
+      `;
+        document.getElementById(`${containerId}_prev`).onclick = () =>
+          onPageChange(page - 1);
+        document.getElementById(`${containerId}_next`).onclick = () =>
+          onPageChange(page + 1);
+      }
+
+      // ---------- افزودن گروه (استخراج + نمایش زنده + مدیریت گروه‌ها) ----------
       async function openAddGroupModal() {
         document.getElementById("groupLinkInput").value = "";
         document.getElementById("addGroupError").textContent = "";
         document.getElementById("addGroupForm").style.display = "flex";
         document.getElementById("addGroupLoading").style.display = "none";
+        document.getElementById("liveProgressList").style.display = "none";
+        document.getElementById("liveProgressList").innerHTML = "";
         document.getElementById("addGroupResult").style.display = "none";
         document.getElementById("addGroupModalOverlay").style.display = "flex";
-        await loadMonitoredGroupsDropdown();
+        await loadMonitoredGroupsList();
       }
 
-      async function loadMonitoredGroupsDropdown() {
-        const select = document.getElementById("monitoredGroupSelect");
-        select.innerHTML = '<option value="">در حال بارگذاری...</option>';
-        try {
-          const res = await fetch("/api/car-ads-monitored-groups");
-          const json = await res.json();
-          const groups = json.data || [];
-
-          select.innerHTML = "";
-          const allOption = document.createElement("option");
-          allOption.value = "";
-          allOption.textContent = "همه‌ی گروه‌ها";
-          select.appendChild(allOption);
-
-          groups.forEach((g) => {
-            const option = document.createElement("option");
-            option.value = g.group_username;
-            option.textContent = "@" + g.group_username;
-            select.appendChild(option);
-          });
-
-          await loadExtractionHistory();
-        } catch (err) {
-          select.innerHTML = '<option value="">خطا در بارگذاری</option>';
-        }
+      function appendLiveProgressItem(item) {
+        const key = item.username + "|" + item.found_at;
+        if (shownProgressIds.has(key)) return;
+        shownProgressIds.add(key);
+        const listEl = document.getElementById("liveProgressList");
+        const div = document.createElement("div");
+        div.className = "live-progress-item";
+        div.innerHTML = `<span class="lp-icon">🆕</span><span class="lp-username">@${
+          item.username
+        }</span>${
+          item.title ? `<span class="lp-title">${item.title}</span>` : ""
+        }`;
+        listEl.appendChild(div);
+        listEl.scrollTop = listEl.scrollHeight;
       }
 
-      async function loadExtractionHistory() {
-        const container = document.getElementById("extractionHistoryList");
-        container.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
-        const groupUsername = document.getElementById(
-          "monitoredGroupSelect"
-        ).value;
-
+      async function pollExtractionProgress() {
+        if (!currentExtractionRunId) return;
         try {
-          let url = "/api/car-ads-extraction-log";
-          if (groupUsername)
-            url += `?group_username=${encodeURIComponent(groupUsername)}`;
-          const res = await fetch(url);
+          const res = await fetch(
+            `/api/car-ads-extraction-progress?run_id=${encodeURIComponent(
+              currentExtractionRunId
+            )}`
+          );
           const json = await res.json();
-          const logs = json.data || [];
+          (json.data || []).forEach(appendLiveProgressItem);
+        } catch (err) {}
+      }
 
-          if (logs.length === 0) {
-            container.innerHTML =
-              '<div class="empty">هنوز هیچ استخراجی برای این گروه ثبت نشده</div>';
-            return;
-          }
+      function startExtractionPolling() {
+        if (extractionProgressTimer) clearInterval(extractionProgressTimer);
+        extractionProgressTimer = setInterval(
+          pollExtractionProgress,
+          EXTRACTION_PROGRESS_POLL_MS
+        );
+      }
 
-          container.innerHTML = "";
-          logs.forEach((log) => {
-            const entry = document.createElement("div");
-            entry.className = "log-entry";
-            const addedText =
-              log.added_channels.length > 0
-                ? `<span class="log-added">🆕 ${log.added_channels.length.toLocaleString(
-                    "fa-IR"
-                  )} کانال جدید: ${log.added_channels
-                    .map((u) => "@" + u)
-                    .join("، ")}</span>`
-                : '<span class="log-none">هنوز کانال جدید پیدا نشده است</span>';
-            entry.innerHTML = `
-            <div class="log-date">${formatDate(log.run_at)}</div>
-            <div class="log-group">@${log.group_username}</div>
-            <div>${addedText}</div>
-          `;
-            container.appendChild(entry);
-          });
-        } catch (err) {
-          container.innerHTML = `<div class="empty">❌ خطا: ${err.message}</div>`;
+      function stopExtractionPolling() {
+        if (extractionProgressTimer) {
+          clearInterval(extractionProgressTimer);
+          extractionProgressTimer = null;
         }
       }
 
@@ -2761,15 +3160,35 @@
         document.getElementById("addGroupLoading").style.display = "flex";
         document.getElementById("addGroupLoadingText").textContent =
           "شروع به استخراج کانال‌های غیرتکراری...";
+        document.getElementById("liveProgressList").style.display = "block";
+        document.getElementById("liveProgressList").innerHTML = "";
         document.getElementById("addGroupResult").style.display = "none";
+        shownProgressIds = new Set();
 
         try {
-          const res = await fetch("/api/car-ads-channels/extract-from-group", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ group_link: link }),
-          });
+          const runRes = await fetch(
+            "/api/car-ads-channels/start-extraction-run",
+            { method: "POST" }
+          );
+          const runJson = await runRes.json();
+          currentExtractionRunId = runJson.run_id;
+          startExtractionPolling();
+
+          const res = await fetch(
+            "/api/car-ads-channels/extract-from-group-with-progress",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                group_link: link,
+                run_id: currentExtractionRunId,
+              }),
+            }
+          );
           const json = await res.json();
+
+          stopExtractionPolling();
+          await pollExtractionProgress();
 
           document.getElementById("addGroupLoading").style.display = "none";
 
@@ -2782,10 +3201,15 @@
           const resultEl = document.getElementById("addGroupResult");
           resultEl.style.display = "block";
           const addedList =
-            (json.added || []).map((u) => "@" + u).join("، ") || "—";
+            (json.added || [])
+              .map(
+                (c) => `@${c.username}${c.title ? " (" + c.title + ")" : ""}`
+              )
+              .join("، ") || "—";
           const dupList =
-            (json.skipped_duplicates || []).map((u) => "@" + u).join("، ") ||
-            "—";
+            (json.skipped_duplicates || [])
+              .map((c) => `@${c.username}`)
+              .join("، ") || "—";
           resultEl.innerHTML = `
           <div>✅ استخراج تمام شد. این گروه از این پس هر روز به‌صورت خودکار برای کانال‌های جدید چک می‌شود.</div>
           <div>📩 تعداد پیام بررسی‌شده: ${json.scanned_messages.toLocaleString(
@@ -2802,11 +3226,134 @@
           )}): ${dupList}</div>
         `;
 
-          await loadMonitoredGroupsDropdown();
+          try {
+            await fetch(
+              `/api/car-ads-extraction-progress/clear?run_id=${encodeURIComponent(
+                currentExtractionRunId
+              )}`,
+              { method: "POST" }
+            );
+          } catch (e) {}
+          currentExtractionRunId = null;
+
+          await loadMonitoredGroupsList();
         } catch (err) {
+          stopExtractionPolling();
           document.getElementById("addGroupLoading").style.display = "none";
           document.getElementById("addGroupForm").style.display = "flex";
           errorEl.textContent = "❌ خطا: " + err.message;
+        }
+      }
+
+      async function loadMonitoredGroupsList() {
+        const container = document.getElementById("monitoredGroupsList");
+        container.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
+        try {
+          const res = await fetch("/api/car-ads-monitored-groups");
+          const json = await res.json();
+          const groups = json.data || [];
+          if (groups.length === 0) {
+            container.innerHTML =
+              '<div class="empty">هنوز هیچ گروهی اضافه نشده</div>';
+            return;
+          }
+          container.innerHTML = "";
+          groups.forEach((g) => {
+            const card = document.createElement("div");
+            card.className = "monitored-group-card";
+            card.innerHTML = `
+            <div class="monitored-group-info">
+              <div class="mg-username">@${g.group_username}</div>
+              <div class="mg-last-scan">آخرین بررسی: ${formatDate(
+                g.last_scanned_at
+              )}</div>
+            </div>
+          `;
+            const actions = document.createElement("div");
+            actions.className = "monitored-group-actions";
+
+            const rescanBtn = document.createElement("button");
+            rescanBtn.className = "secondary tiny";
+            rescanBtn.textContent = "🔄 بررسی دوباره";
+            rescanBtn.onclick = () =>
+              rescanGroupNow(g.group_username, rescanBtn);
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "danger-outline tiny";
+            deleteBtn.textContent = "حذف گروه";
+            deleteBtn.onclick = async () => {
+              if (
+                !confirm(
+                  `گروه @${g.group_username} از فهرست مانیتورینگ حذف شود؟`
+                )
+              )
+                return;
+              await fetch(
+                `/api/car-ads-monitored-groups/${encodeURIComponent(
+                  g.group_username
+                )}`,
+                { method: "DELETE" }
+              );
+              await loadMonitoredGroupsList();
+            };
+
+            actions.appendChild(rescanBtn);
+            actions.appendChild(deleteBtn);
+            card.appendChild(actions);
+            container.appendChild(card);
+          });
+        } catch (err) {
+          container.innerHTML = `<div class="empty">❌ خطا: ${err.message}</div>`;
+        }
+      }
+
+      async function rescanGroupNow(groupUsername, btnEl) {
+        const originalText = btnEl.textContent;
+        btnEl.disabled = true;
+        btnEl.textContent = "در حال بررسی...";
+        try {
+          const runRes = await fetch(
+            "/api/car-ads-channels/start-extraction-run",
+            { method: "POST" }
+          );
+          const runJson = await runRes.json();
+          const runId = runJson.run_id;
+
+          const res = await fetch("/api/car-ads-channels/rescan-group", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              group_username: groupUsername,
+              run_id: runId,
+            }),
+          });
+          const json = await res.json();
+
+          try {
+            await fetch(
+              `/api/car-ads-extraction-progress/clear?run_id=${encodeURIComponent(
+                runId
+              )}`,
+              { method: "POST" }
+            );
+          } catch (e) {}
+
+          if (json.error) {
+            alert("خطا در بررسی دوباره: " + json.error);
+          } else {
+            const addedCount = (json.added || []).length;
+            alert(
+              addedCount > 0
+                ? `✅ ${addedCount} کانال جدید پیدا و اضافه شد.`
+                : "هنوز کانال جدیدی پیدا نشده است."
+            );
+          }
+          await loadMonitoredGroupsList();
+        } catch (err) {
+          alert("خطا: " + err.message);
+        } finally {
+          btnEl.disabled = false;
+          btnEl.textContent = originalText;
         }
       }
 
@@ -2817,188 +3364,88 @@
         if (event.target.id === "addGroupModalOverlay") closeAddGroupModal();
       }
 
-      // ---------- پیش‌نمایش زنده‌ی نام کانال ----------
-      function onChannelInputChange() {
-        clearTimeout(channelPreviewTimeout);
-        const username = document
-          .getElementById("newChannelInput")
-          .value.trim()
-          .replace(/^@/, "");
-        const previewEl = document.getElementById("channelPreview");
-
-        if (!username) {
-          previewEl.textContent = "";
-          previewEl.className = "channel-preview";
-          return;
-        }
-
-        previewEl.textContent = "در حال جستجو...";
-        previewEl.className = "channel-preview loading";
-
-        channelPreviewTimeout = setTimeout(async () => {
-          try {
-            const res = await fetch(
-              `/api/car-ads-channel-preview?username=${encodeURIComponent(
-                username
-              )}`
-            );
-            const json = await res.json();
-            if (json.found) {
-              previewEl.textContent = "✅ " + json.title;
-              previewEl.className = "channel-preview found";
-            } else {
-              previewEl.textContent = "❌ کانالی با این نام پیدا نشد";
-              previewEl.className = "channel-preview not-found";
-            }
-          } catch (err) {
-            previewEl.textContent = "";
-            previewEl.className = "channel-preview";
-          }
-        }, CHANNEL_PREVIEW_DEBOUNCE_MS);
-      }
-
-      function onChannelInputKeydown(event) {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          addChannel();
-        }
-      }
-
-      async function addChannel() {
-        const input = document.getElementById("newChannelInput");
-        const previewEl = document.getElementById("channelPreview");
-        const username = input.value.trim().replace(/^@/, "");
-        if (!username) return;
-
+      // ---------- مودال مجزا: گزارش استخراج روزانه ----------
+      async function openDailyReportModal() {
+        document.getElementById("dailyReportModalOverlay").style.display =
+          "flex";
+        const select = document.getElementById("dailyReportGroupSelect");
+        select.innerHTML = '<option value="">در حال بارگذاری...</option>';
         try {
-          const res = await fetch("/api/car-ads-channels", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username }),
-          });
+          const res = await fetch("/api/car-ads-monitored-groups");
           const json = await res.json();
+          const groups = json.data || [];
+          select.innerHTML = "";
+          const allOption = document.createElement("option");
+          allOption.value = "";
+          allOption.textContent = "همه‌ی گروه‌ها";
+          select.appendChild(allOption);
+          groups.forEach((g) => {
+            const option = document.createElement("option");
+            option.value = g.group_username;
+            option.textContent = "@" + g.group_username;
+            select.appendChild(option);
+          });
+        } catch (err) {
+          select.innerHTML = '<option value="">خطا در بارگذاری</option>';
+        }
+        await loadDailyReport();
+      }
 
-          if (json.status === "duplicate") {
-            previewEl.textContent =
-              "⚠️ این کانال تکراری است — از قبل اضافه شده";
-            previewEl.className = "channel-preview duplicate";
+      async function loadDailyReport() {
+        const container = document.getElementById("dailyReportList");
+        container.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
+        const groupUsername = document.getElementById(
+          "dailyReportGroupSelect"
+        ).value;
+        try {
+          let url = "/api/car-ads-extraction-log";
+          if (groupUsername)
+            url += `?group_username=${encodeURIComponent(groupUsername)}`;
+          const res = await fetch(url);
+          const json = await res.json();
+          const logs = json.data || [];
+          if (logs.length === 0) {
+            container.innerHTML =
+              '<div class="empty">هنوز هیچ گزارشی ثبت نشده</div>';
             return;
           }
-
-          input.value = "";
-          previewEl.textContent = "";
-          previewEl.className = "channel-preview";
-
-          if (
-            document.getElementById("channelsModalOverlay").style.display ===
-            "flex"
-          ) {
-            await loadChannelsModal();
-          }
+          container.innerHTML = "";
+          logs.forEach((log) => {
+            const entry = document.createElement("div");
+            entry.className = "daily-log-entry";
+            const count = log.added_channels.length;
+            const badgeClass = count > 0 ? "" : "zero";
+            const channelsHtml =
+              count > 0
+                ? `<div class="dl-channels">${log.added_channels
+                    .map(
+                      (c) => `@${c.username}${c.title ? " — " + c.title : ""}`
+                    )
+                    .join("<br/>")}</div>`
+                : '<div class="dl-none">هنوز کانال جدید پیدا نشده است</div>';
+            entry.innerHTML = `
+            <div class="dl-date">${formatDate(log.run_at)}</div>
+            <div class="dl-group">@${
+              log.group_username
+            }<span class="dl-count-badge ${badgeClass}">${count.toLocaleString(
+              "fa-IR"
+            )} کانال جدید</span></div>
+            ${channelsHtml}
+          `;
+            container.appendChild(entry);
+          });
         } catch (err) {
-          previewEl.textContent = "❌ خطا در افزودن کانال";
-          previewEl.className = "channel-preview not-found";
+          container.innerHTML = `<div class="empty">❌ خطا: ${err.message}</div>`;
         }
       }
 
-      // ---------- مدال لیست کانال‌ها ----------
-      async function openChannelsModal() {
-        document.getElementById("searchChannelsModal").value = "";
-        document.getElementById("channelsModalOverlay").style.display = "flex";
-        await loadChannelsModal();
+      function closeDailyReportModal() {
+        document.getElementById("dailyReportModalOverlay").style.display =
+          "none";
       }
-
-      async function loadChannelsModal() {
-        const list = document.getElementById("channelsModalList");
-        list.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
-        try {
-          const res = await fetch("/api/car-ads-channels");
-          const json = await res.json();
-          allChannels = json.data || [];
-          filterChannelsModal();
-        } catch (err) {
-          list.innerHTML = `<div class="empty">❌ خطا: ${err.message}</div>`;
-        }
-      }
-
-      function filterChannelsModal() {
-        const q = document
-          .getElementById("searchChannelsModal")
-          .value.trim()
-          .toLowerCase();
-        const filtered = allChannels.filter((ch) =>
-          ch.username.toLowerCase().includes(q)
-        );
-        renderChannelsModal(filtered);
-      }
-
-      function renderChannelsModal(channels) {
-        const list = document.getElementById("channelsModalList");
-        list.innerHTML = "";
-
-        const activeCount = allChannels.filter((ch) => ch.active).length;
-        document.getElementById("channelsModalMeta").textContent =
-          `${allChannels.length.toLocaleString(
-            "fa-IR"
-          )} کانال کل — ${activeCount.toLocaleString("fa-IR")} فعال` +
-          (channels.length !== allChannels.length
-            ? ` — ${channels.length.toLocaleString("fa-IR")} نتیجه‌ی جستجو`
-            : "");
-
-        if (channels.length === 0) {
-          list.innerHTML = '<div class="empty">کانالی پیدا نشد</div>';
-          return;
-        }
-
-        channels.forEach((ch, idx) => {
-          const row = document.createElement("div");
-          row.className = "channel-row";
-
-          const rowNum = document.createElement("span");
-          rowNum.className = "channel-row-num";
-          rowNum.textContent = (idx + 1).toLocaleString("fa-IR");
-
-          const nameSpan = document.createElement("span");
-          nameSpan.className = "channel-name";
-          nameSpan.textContent = "@" + ch.username;
-          nameSpan.title = "@" + ch.username;
-
-          const statusSpan = document.createElement("span");
-          statusSpan.className = `channel-status ${
-            ch.active ? "active" : "inactive"
-          }`;
-          statusSpan.textContent = ch.active ? "فعال" : "غیرفعال";
-
-          const btn = document.createElement("button");
-          btn.textContent = ch.active ? "حذف" : "فعال‌سازی";
-          btn.onclick = async () => {
-            if (ch.active)
-              await fetch(
-                `/api/car-ads-channels/${encodeURIComponent(ch.username)}`,
-                { method: "DELETE" }
-              );
-            else
-              await fetch("/api/car-ads-channels", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username: ch.username }),
-              });
-            await loadChannelsModal();
-          };
-
-          row.appendChild(rowNum);
-          row.appendChild(nameSpan);
-          row.appendChild(statusSpan);
-          row.appendChild(btn);
-          list.appendChild(row);
-        });
-      }
-
-      function closeChannelsModal() {
-        document.getElementById("channelsModalOverlay").style.display = "none";
-      }
-      function closeChannelsModalOnOverlay(event) {
-        if (event.target.id === "channelsModalOverlay") closeChannelsModal();
+      function closeDailyReportModalOnOverlay(event) {
+        if (event.target.id === "dailyReportModalOverlay")
+          closeDailyReportModal();
       }
 
       // ---------- تنظیمات ----------
@@ -3093,11 +3540,9 @@
           );
           const json = await res.json();
           if (json.error) return;
-
           const count = json.count || 0;
           const badge = document.getElementById("bellBadge");
           const bellBtn = document.getElementById("bellBtn");
-
           if (count > 0) {
             badge.textContent =
               count > 99 ? "۹۹+" : count.toLocaleString("fa-IR");
@@ -3124,7 +3569,6 @@
         const uniqueCarNames = Array.from(
           new Set(allAnalyticsData.map((item) => item.car_name))
         ).sort((a, b) => a.localeCompare(b, "fa"));
-
         select.innerHTML = "";
         if (uniqueCarNames.length === 0) {
           const option = document.createElement("option");
@@ -3133,7 +3577,6 @@
           select.appendChild(option);
           return;
         }
-
         uniqueCarNames.forEach((name) => {
           const option = document.createElement("option");
           option.value = name;
@@ -3152,7 +3595,6 @@
         populateAlertCarNameSelect();
         document.getElementById("alertsModalOverlay").style.display = "flex";
         await Promise.all([loadAlertRules(), loadAlertMatches()]);
-
         try {
           await fetch("/api/car-ads-alert-matches/mark-seen", {
             method: "POST",
@@ -3168,18 +3610,15 @@
           const res = await fetch("/api/car-ads-price-alerts");
           const json = await res.json();
           const rules = json.data || [];
-
           if (rules.length === 0) {
             container.innerHTML =
               '<div class="empty">هنوز هیچ قانونی ثبت نشده</div>';
             return;
           }
-
           container.innerHTML = "";
           rules.forEach((rule) => {
             const card = document.createElement("div");
             card.className = "alert-rule-card";
-
             let rangeText, badgeClass, badgeLabel;
             if (rule.min_price !== null && rule.max_price !== null) {
               rangeText = `${formatToman(rule.min_price)} تا ${formatToman(
@@ -3196,14 +3635,12 @@
               badgeClass = "below";
               badgeLabel = "کمتر از";
             }
-
             card.innerHTML = `
             <div class="alert-rule-info">
               <div class="rule-car-name">${rule.car_name}</div>
               <div class="rule-range"><span class="rule-range-badge ${badgeClass}">${badgeLabel}</span>${rangeText}</div>
             </div>
           `;
-
             const deleteBtn = document.createElement("button");
             deleteBtn.className = "danger-outline";
             deleteBtn.textContent = "حذف";
@@ -3213,7 +3650,6 @@
               });
               await loadAlertRules();
             };
-
             card.appendChild(deleteBtn);
             container.appendChild(card);
           });
@@ -3229,29 +3665,24 @@
           const res = await fetch("/api/car-ads-alert-matches");
           const json = await res.json();
           const matches = json.data || [];
-
           if (matches.length === 0) {
             container.innerHTML =
               '<div class="empty">هنوز هیچ آگهی‌ای با قانون‌های شما مطابقت نداشته</div>';
             return;
           }
-
           container.innerHTML = "";
           matches.forEach((match) => {
             const card = document.createElement("div");
             card.className = "ad-card";
             card.innerHTML = `
-            <div class="ad-row">
-              <div>
-                <div class="match-car-name">${match.car_name}</div>
-                <div class="match-price">${formatToman(
-                  match.price_amount
-                )}</div>
-              </div>
+            <div class="ad-row"><div><div class="match-car-name">${
+              match.car_name
+            }</div><div class="match-price">${formatToman(
+              match.price_amount
+            )}</div></div>
               <a href="${
                 match.telegram_link
-              }" target="_blank" rel="noopener" class="ad-link">مشاهده در تلگرام ↗</a>
-            </div>
+              }" target="_blank" rel="noopener" class="ad-link">مشاهده در تلگرام ↗</a></div>
             <div class="match-rule-info">مطابق قانون: ${
               match.alert_car_name || "—"
             }</div>
@@ -3267,7 +3698,6 @@
       async function addPriceAlert() {
         const errorEl = document.getElementById("alertFormError");
         errorEl.textContent = "";
-
         const carName = document.getElementById("alertCarNameSelect").value;
         const minRaw = document
           .getElementById("alertMinPrice")
@@ -3275,14 +3705,11 @@
         const maxRaw = document
           .getElementById("alertMaxPrice")
           .value.replace(/[^\d]/g, "");
-
         if (!carName) {
           errorEl.textContent = "لطفاً یک مدل خودرو انتخاب کن.";
           return;
         }
-
         const payload = { car_name: carName };
-
         if (currentAlertPriceMode === "range") {
           if (!minRaw && !maxRaw) {
             errorEl.textContent =
@@ -3306,7 +3733,6 @@
           }
           payload.min_price = parseInt(minRaw, 10);
         }
-
         try {
           const res = await fetch("/api/car-ads-price-alerts", {
             method: "POST",
@@ -3318,7 +3744,6 @@
             errorEl.textContent = "❌ " + json.error;
             return;
           }
-
           document.getElementById("alertMinPrice").value = "";
           document.getElementById("alertMaxPrice").value = "";
           document.getElementById("alertMinPriceWords").textContent = "";
