@@ -1,21 +1,19 @@
 """
 لایه‌ی تحلیل/تجمیع قیمت‌ها — روی داده‌های «بشکه» (car_ads.db).
-برای هر مدل خودرو (car_name)، در یک بازه‌ی زمانی (پیش‌فرض ۲۴ ساعت اخیر)،
-حداقل/میانگین/حداکثر قیمت و تعداد آگهی‌ها را محاسبه می‌کند.
 
-تمام فیلترها/مرتب‌سازی‌های زمانی این فایل روی telegram_date (زمان واقعی پست
-در تلگرام) انجام می‌شود، نه created_at (زمان پردازش AI) — چون telegram_date
-نشان‌دهنده‌ی زمان واقعی آگهی است.
+پارامتر search (جدید): وقتی داده شود، قبل از گروه‌بندی روی هر آگهی خام چک
+می‌شود که آیا هر کدام از فیلدهای car_name/trim/color/phone/notes/
+message_text/city/price_label شامل متن جستجو هست یا نه — اگر بله، آن آگهی
+نگه داشته می‌شود. بعد از این فیلتر، گروه‌بندی و محاسبه‌ی آمار (تعداد/
+min/max/avg) فقط از همین زیرمجموعه‌ی match‌شده انجام می‌شود، نه از کل
+آگهی‌های آن مدل. یعنی اگر کاربر «برقی» جستجو کند، مدلی که ۲۶ آگهی دارد ولی
+فقط ۳ تای آن‌ها «برقی» بوده‌اند، در جدول با «۳ آگهی» و آمار قیمتی فقط
+همان ۳ آگهی نشان داده می‌شود — نه کل ۲۶ آگهی.
 
-تفکیک صفر/کارکرده: چون فیلد جداگانه‌ای برای وضعیت صفر/کارکرده نداریم، از
-mileage_km به‌عنوان معیار استفاده می‌شود — اگر mileage_km مقدار مشخص و
-بزرگ‌تر از صفر داشته باشد، آگهی «کارکرده» در نظر گرفته می‌شود؛ در غیر این
-صورت (خالی یا صفر) «صفر» فرض می‌شود. جدول اصلی داشبورد (get_price_analytics
-و get_ads_for_model) به‌صورت پیش‌فرض فقط خودروهای صفر را نشان می‌دهند؛
-خودروهای کارکرده با get_used_cars_report به‌صورت لیست خام و جدا در دسترس‌اند.
-
-این فایل کاملاً مستقل است؛ به listener.py یا db.py تغییری نمی‌دهد و
-فقط همان car_ads.db موجود را می‌خوانَد.
+چون car_name/trim هم در این haystack هستند، جستجوهای مبتنی بر اسم مدل هم
+از قبل به همین شکل کار می‌کنند (مثلاً «سورن پارس» با هر دو زیرمدل «سورن
+پارس برقی» و «سورن پارس سیمی» match می‌شود، ولی «سورن پارس سیمی» فقط با
+همان یکی).
 """
 import sqlite3
 from pathlib import Path
@@ -25,23 +23,10 @@ DB_PATH = Path(__file__).parent / "car_ads.db"
 
 
 def _effective_date(item: dict) -> str:
-    """telegram_date اگه موجود بود، وگرنه created_at به‌عنوان جایگزین (برای رکوردهای خیلی قدیمی‌تر از قبل این آپدیت)."""
     return item.get("telegram_date") or item.get("created_at") or ""
 
 
 def _dedupe_rows(rows: list[sqlite3.Row]) -> list[dict]:
-    """
-    آگهی‌هایی که شماره تلفن + مدل خودرو یکسان دارند، یک «بازنشر» همان آگهی
-    در نظر گرفته می‌شوند (مثلاً وقتی فروشنده برای بالا آمدن در کانال دوباره
-    پست می‌کند). از هر گروه فقط تازه‌ترین رکورد (بر اساس telegram_date) نگه
-    داشته می‌شود، با یک فیلد اضافه‌ی repost_count که تعداد تکرار را نشان می‌دهد.
-
-    آگهی‌هایی که شماره تلفن ندارند قابل تشخیص هویت نیستند، پس هرکدام
-    جدا (بدون دیداپ) حساب می‌شوند.
-
-    توجه: این فقط روی نتیجه‌ی محاسبه‌شده اثر می‌گذارد؛ هیچ ردیفی از
-    car_ads.db حذف نمی‌شود.
-    """
     groups: dict[tuple, dict] = {}
     standalone: list[dict] = []
 
@@ -65,52 +50,49 @@ def _dedupe_rows(rows: list[sqlite3.Row]) -> list[dict]:
 
 
 def _display_name(car_name: str, trim: str | None) -> str:
-    """نام نمایشی ترکیبی — مثلاً «دنا (دنده‌ای)» — وقتی تیپ مشخص باشد."""
     if trim and trim.strip():
         return f"{car_name} ({trim.strip()})"
     return car_name
 
 
-def get_price_analytics(hours: int = 24, only_new: bool = True) -> list[dict]:
+def _matches_search(item: dict, search_lower: str) -> bool:
+    """
+    چک می‌کند آیا هر کدام از فیلدهای مرتبط این آگهی شامل متن جستجو هست —
+    هم اسم مدل/تیپ (برای سرچ مبتنی بر مدل) هم محتوای واقعی پیام/رنگ/تلفن/
+    توضیحات/شهر/برچسب قیمت (برای سرچ محتوایی).
+    """
+    fields = [
+        item.get("car_name"),
+        item.get("trim"),
+        item.get("color"),
+        item.get("phone"),
+        item.get("notes"),
+        item.get("message_text"),
+        item.get("city"),
+        item.get("price_label"),
+    ]
+    haystack = " ".join(f for f in fields if f).lower()
+    return search_lower in haystack
+
+
+def get_price_analytics(hours: int = 24, only_new: bool = True, search: str | None = None) -> list[dict]:
     """
     خروجی: لیستی از دیکشنری‌ها، هر کدوم برای یک ترکیب (car_name, trim):
         {
             "car_name": str,
             "trim": str | None,
-            "display_name": str,   # مثلاً "دنا (دنده‌ای)" یا فقط "دنا" اگه تیپ نداشت
-            "total_ads": int,    # تعداد آگهی‌های یکتا (بعد از دیداپ بازنشرها)
-            "priced_ads": int,   # تعداد آگهی‌هایی که قیمت مشخص دارند
+            "display_name": str,
+            "total_ads": int,
+            "priced_ads": int,
             "min_price": int | None,
             "avg_price": int | None,
             "max_price": int | None,
-            "last_seen": str,    # آخرین زمان دیده‌شدن — زمان واقعی پست تلگرام (telegram_date)
+            "last_seen": str,
         }
-    مرتب‌شده بر اساس تعداد آگهی (پرتکرارترین مدل‌ها اول).
 
-    only_new: اگه True (پیش‌فرض)، فقط آگهی‌هایی که mileage_km ندارند یا صفر
-    است (یعنی خودروی صفر) در این تجمیع حساب می‌شوند — خودروهای کارکرده جدا،
-    با get_used_cars_report قابل مشاهده‌اند.
-
-    چرا تیپ (trim) هم جزو کلید گروه‌بندی است: برای مدل‌هایی مثل دنا که هم
-    دنده‌ای و هم اتومات دارند و قیمتشان واقعاً فرق دارد، قاطی‌کردن همه زیر
-    یک میانگین گمراه‌کننده است — هر تیپ ردیف و میانگین جدای خودش را دارد.
-    آگهی‌های بدون تیپ مشخص با هم در یک گروه «بدون تیپ» قرار می‌گیرند.
-
-    دیداپ: آگهی‌هایی با شماره تلفن + مدل + تیپ یکسان، یک آگهی حساب می‌شوند
-    (جزئیات در _dedupe_rows). داده‌ی خام car_ads.db دست‌نخورده می‌ماند.
-
-    توجه: فقط آگهی‌های ad_type='for_sale' حساب می‌شوند — آگهی‌های «خریدارم»
-    (wanted_to_buy) با اینکه در دیتابیس ذخیره می‌مانند، از این تجمیع کنار
-    گذاشته می‌شوند، چون «بودجه‌ی پیشنهادی خریدار» قیمت فروش واقعی نیست و
-    می‌تواند min/avg/max را گمراه‌کننده کند. این آگهی‌ها جداگانه با
-    get_wanted_ads قابل دیدن هستند.
-
-    توجه: car_name همان متنی است که AI استخراج کرده (مثلاً «کیا سراتو»).
-    اگه یک مدل با چند املای متفاوت استخراج شده باشد (مثلاً «سراتو» و
-    «کیا سراتو»، یا فارسی/انگلیسی) جدا حساب می‌شوند — این یک محدودیت
-    شناخته‌شده است؛ پرامپت استخراج (extractor.py) سعی می‌کند با اجباری‌کردن
-    نام فارسی همیشگی این مورد را کم کند، ولی خطاهای تک‌حرفی AI کاملاً حذف
-    نمی‌شوند.
+    اگر search داده شود، فقط آگهی‌هایی که با _matches_search تطبیق دارند
+    وارد محاسبه می‌شوند و مدل‌هایی که هیچ آگهی match‌شده‌ای ندارند اصلاً در
+    خروجی ظاهر نمی‌شوند.
     """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
@@ -134,6 +116,10 @@ def get_price_analytics(hours: int = 24, only_new: bool = True) -> list[dict]:
         conn.close()
 
     deduped = _dedupe_rows(rows)
+
+    if search and search.strip():
+        search_lower = search.strip().lower()
+        deduped = [item for item in deduped if _matches_search(item, search_lower)]
 
     by_model: dict[tuple, list[dict]] = {}
     for item in deduped:
@@ -162,22 +148,6 @@ def get_price_analytics(hours: int = 24, only_new: bool = True) -> list[dict]:
 
 
 def get_ads_for_model(car_name: str, trim: str | None = None, hours: int = 24, only_new: bool = True) -> list[dict]:
-    """
-    همه‌ی آگهی‌های یک ترکیب (car_name, trim) خاص در بازه‌ی زمانی مشخص را
-    برمی‌گرداند — چه با قیمت و چه بدون قیمت. برای نمایش در مدال جزئیات
-    استفاده می‌شود. هر ردیف یک فیلد اضافه‌ی telegram_link هم دارد که
-    مستقیم به همان پیام اصلی توی تلگرام لینک می‌دهد (channel + message_id
-    را که از قبل ذخیره می‌کنیم استفاده می‌کند).
-
-    trim=None یعنی گروه «بدون تیپ مشخص» (یعنی ستون trim توی دیتابیس NULL
-    است)، نه «هر تیپی». این با همون گروه‌بندی get_price_analytics هم‌خوانه.
-
-    only_new: مثل get_price_analytics — پیش‌فرض True یعنی فقط خودروهای صفر.
-
-    توجه: فقط آگهی‌های ad_type='for_sale' برگردانده می‌شوند، با همون منطق
-    get_price_analytics (آگهی‌های «خریدارم» را کنار می‌گذاریم تا بودجه‌ی
-    پیشنهادی خریدار توی برچسب کمترین/بیشترین قیمت مدال هم اثر نگذارد).
-    """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
     conn = sqlite3.connect(DB_PATH)
@@ -221,22 +191,6 @@ def get_ads_for_model(car_name: str, trim: str | None = None, hours: int = 24, o
 
 
 def get_daily_lowest_prices() -> list[dict]:
-    """
-    گزارش روزانه‌ی جدید (صفحه‌ی گزارش در داشبورد): برای هر مدل خودرو
-    (بدون تفکیک تیپ)، فقط کمترین قیمت را در میان همه‌ی آگهی‌های for_sale
-    فعلی دیتابیس برمی‌گرداند.
-
-    چون کل جدول car_ads هر شب نیمه‌شب پاک می‌شود (طبق midnight_cleanup_loop
-    در listener.py)، هرچه الان در دیتابیس هست عملاً «آگهی‌های امروز» است —
-    پس نیازی به فیلتر بازه‌ی زمانی جداگانه نیست.
-
-    خروجی: لیستی مرتب‌شده بر اساس نام مدل، هرکدام:
-        {
-            "car_name": str,
-            "min_price": int | None,
-            "telegram_link": str | None,   # لینک همان آگهی با کمترین قیمت
-        }
-    """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -271,11 +225,6 @@ def get_daily_lowest_prices() -> list[dict]:
 
 
 def get_wanted_ads(hours: int = 168) -> list[dict]:
-    """
-    آگهی‌های «خریدارم» (ad_type='wanted_to_buy') — این‌ها در get_price_analytics
-    و get_daily_lowest_prices عمداً کنار گذاشته می‌شوند چون قیمت پیشنهادی
-    خریدار نیست، ولی خودشان به‌عنوان یک لیست جداگانه در داشبورد قابل مشاهده‌اند.
-    """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
     conn = sqlite3.connect(DB_PATH)
@@ -303,13 +252,6 @@ def get_wanted_ads(hours: int = 168) -> list[dict]:
 
 
 def get_no_price_ads(hours: int = 168) -> list[dict]:
-    """
-    آگهی‌های فروش (ad_type='for_sale') که هیچ قیمتی برایشان استخراج نشده
-    (price_amount IS NULL) — این آگهی‌ها در get_price_analytics/
-    get_daily_lowest_prices در محاسبه‌ی min/avg/max اثر ندارند، ولی برای
-    بررسی دستی (شاید فروشنده تماس بگیرید برای قیمت) به‌صورت لیست جدا نمایش
-    داده می‌شوند.
-    """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
     conn = sqlite3.connect(DB_PATH)
@@ -338,15 +280,6 @@ def get_no_price_ads(hours: int = 168) -> list[dict]:
 
 
 def get_used_cars_report(hours: int = 24) -> list[dict]:
-    """
-    لیست خام همه‌ی آگهی‌های «کارکرده» (یعنی مقدار mileage_km مشخص و بزرگ‌تر
-    از صفر دارند — طبق قانون: اگر آگهی «کارکرد» یا «آمپر» داشته باشد، کارکرده
-    محسوب می‌شود). بر خلاف جدول اصلی (که فقط خودروهای صفر را نشان می‌دهد)،
-    این تابع مستقیم لیست تک‌تک آگهی‌ها را برمی‌گرداند، نه تجمیع بر اساس مدل
-    — چون قرار است در یک مودال جدول‌مانند نشان داده شود.
-
-    مرتب‌سازی: ابتدا بر اساس نام مدل (الفبایی)، بعد بر اساس قیمت (کمترین اول).
-    """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
     conn = sqlite3.connect(DB_PATH)
@@ -376,11 +309,6 @@ def get_used_cars_report(hours: int = 24) -> list[dict]:
 
 
 def get_archived_ads() -> list[dict]:
-    """
-    همه‌ی آگهی‌های قیمت‌دار (ad_type='for_sale' و price_amount مشخص) در
-    archived_ads — یعنی آرشیو «دیروز» — مرتب‌شده از کمترین به بیشترین قیمت.
-    برای صفحه‌ی آرشیو در داشبورد (archive.html) و خروجی اکسل استفاده می‌شود.
-    """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:

@@ -48,6 +48,10 @@ PROXY_URL = f"socks5h://{PROXY_HOST}:{PROXY_PORT}" if USE_PROXY else None
 AI_RATE_LIMIT_SETTING_KEY = "ai_rate_limit_seconds"
 DEFAULT_AI_RATE_LIMIT_SECONDS = 10.0
 
+ACCOUNT_USERNAME_KEY = "telegram_account_username"
+ACCOUNT_CHANNEL_COUNT_KEY = "telegram_account_channel_count"
+ACCOUNT_UPDATED_AT_KEY = "telegram_account_updated_at"
+
 
 class ChannelIn(BaseModel):
     username: str
@@ -79,10 +83,6 @@ class PriceAlertIn(BaseModel):
 
 @app.on_event("startup")
 async def _start_background_tasks():
-    """
-    حلقه‌ی اسکن روزانه‌ی گروه‌های مانیتورشونده را همراه با بالا‌آمدن خودِ
-    API استارت می‌کند — نیازی به پروسه‌ی جداگانه نیست.
-    """
     import asyncio
     asyncio.create_task(daily_scan_loop())
 
@@ -119,8 +119,9 @@ def health():
 def analytics(
     hours: int = Query(24, ge=1, le=168),
     only_new: bool = Query(True),
+    search: str | None = Query(None, description="جستجوی محتوایی — روی اسم مدل/تیپ/رنگ/تلفن/توضیحات/متن پیام/شهر/برچسب قیمت"),
 ):
-    data = get_price_analytics(hours=hours, only_new=only_new)
+    data = get_price_analytics(hours=hours, only_new=only_new, search=search)
     return {"hours": hours, "models_count": len(data), "data": data}
 
 
@@ -165,6 +166,25 @@ def archive():
     return {"count": len(data), "data": data}
 
 
+@app.get("/account-status")
+def account_status():
+    """
+    وضعیت زنده‌ی اکانت Telethon اصلی (همانی که listener.py با آن کار می‌کند)
+    — نام کاربری و تعداد کانال/گروهی که الان واقعاً عضوش است. این مقادیر
+    توسط listener.py هر چند دقیقه در جدول settings به‌روزرسانی می‌شوند؛
+    اینجا فقط همان مقدار ذخیره‌شده خوانده می‌شود (بدون باز‌کردن session
+    Telethon جدید، تا قفل‌شدن session تکرار نشود).
+    """
+    username = get_setting(ACCOUNT_USERNAME_KEY, default=None)
+    channel_count = get_setting(ACCOUNT_CHANNEL_COUNT_KEY, default=None)
+    updated_at = get_setting(ACCOUNT_UPDATED_AT_KEY, default=None)
+    return {
+        "username": username,
+        "channel_count": int(channel_count) if channel_count else None,
+        "updated_at": updated_at,
+    }
+
+
 @app.get("/channel-preview")
 def channel_preview(username: str = Query(...)):
     username = username.strip().lstrip("@")
@@ -197,10 +217,6 @@ def delete_channel(username: str):
 
 @app.post("/channels/extract-from-group")
 async def extract_from_group(payload: GroupExtractIn):
-    """
-    استخراج اولیه‌ی کانال‌های یک گروه (۷ روز اخیر) و ثبت آن گروه برای
-    اسکن خودکار روزانه‌ی بعدی.
-    """
     try:
         result = await extract_channels_from_group(payload.group_link)
         return {"status": "ok", **result}
@@ -214,17 +230,11 @@ async def extract_from_group(payload: GroupExtractIn):
 
 @app.get("/channels/monitored-groups")
 def get_monitored_groups():
-    """لیست گروه‌هایی که هر روز به‌صورت خودکار برای کانال جدید چک می‌شوند."""
     return {"data": list_monitored_groups()}
 
 
 @app.get("/channels/extraction-log")
 def get_extraction_log(group_username: str | None = Query(None)):
-    """
-    تاریخچه‌ی استخراج‌ها — برای نمایش «هر روز چه کانال جدیدی پیدا شد» در
-    مودال افزودن گروه. اگه group_username داده نشود، تاریخچه‌ی همه‌ی
-    گروه‌ها با هم برگردانده می‌شود.
-    """
     data = list_extraction_logs(group_username=group_username)
     return {"data": data}
 

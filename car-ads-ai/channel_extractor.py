@@ -53,7 +53,7 @@ PROXY_CONFIG = (python_socks.ProxyType.SOCKS5, PROXY_HOST, PROXY_PORT) if USE_PR
 
 CONNECT_TIMEOUT_SECONDS = 30
 JOIN_TIMEOUT_SECONDS = 20
-DEFAULT_EXTRACTION_DAYS = 7
+DEFAULT_EXTRACTION_DAYS = 3
 MAX_MESSAGES_TO_SCAN = 5000
 DAILY_SCAN_CHECK_INTERVAL_SECONDS = 3600  # هر ۱ ساعت چک می‌کند کدام گروه‌ها ۲۴+ ساعت از آخرین اسکنشان گذشته
 GROUP_SCAN_GAP_SECONDS = 5  # فاصله‌ی کوچک بین اسکن هر گروه، برای احتیاط در برابر فلود
