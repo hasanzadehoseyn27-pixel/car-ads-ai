@@ -8,14 +8,17 @@
 جدول price_alerts / alert_matches: سیستم هشدار قیمت.
 جدول archived_ads: آرشیو «دیروز» — قبل از پاکسازی نیمه‌شب پر می‌شود.
 جدول monitored_groups / channel_extraction_log: استخراج خودکار روزانه‌ی کانال از گروه.
+جدول extraction_progress: وضعیت لحظه‌ای یک اجرای در حال انجام استخراج.
 
-جدول extraction_progress: وضعیت لحظه‌ای یک اجرای در حال انجام استخراج —
-هر بار که یک کانال جدید در حین اسکن پیدا می‌شود، فوری یک ردیف اینجا ثبت
-می‌شود (شامل یوزرنیم و اسم واقعی کانال) تا فرانت‌اند بتواند با polling
-دوره‌ای، پیشرفت را تقریباً زنده نشان دهد. هر اجرا یک run_id یکتا دارد.
-این جدول به‌مرور رشد می‌کند؛ برای اجرای دستی معمولاً همان run_id بارها
-poll می‌شود و بعد از پایان دیگر لازم نیست، پس نگه‌داشتن تاریخچه‌اش مشکلی
-ایجاد نمی‌کند (حجمش کوچک است).
+نکته‌ی مهم درباره‌ی هم‌زمانی: این فایل هم‌زمان توسط چند پروسه نوشته می‌شود
+(listener.py مدام آگهی/وضعیت اکانت می‌نویسد، api.py هنگام استخراج گروه
+مدام extraction_progress می‌نویسد). برای اینکه این نوشتن‌های هم‌زمان به
+خطای «database is locked» نخورند، همه‌ی اتصال‌ها از تابع _connect() عبور
+می‌کنند که:
+  ۱) timeout بالا (۱۰ ثانیه) دارد — یعنی به‌جای خطای فوری، تا ۱۰ ثانیه صبر
+     می‌کند تا قفل باز شود.
+  ۲) journal_mode را روی WAL می‌گذارد — حالتی از SQLite که مخصوص همین
+     سناریوهای نوشتن/خوانش هم‌زمان طراحی شده و تداخل را به‌شدت کم می‌کند.
 """
 import json
 import sqlite3
@@ -25,9 +28,18 @@ from datetime import datetime, timezone
 
 DB_PATH = Path(__file__).parent / "car_ads.db"
 
+_CONNECT_TIMEOUT_SECONDS = 10
+
+
+def _connect() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH, timeout=_CONNECT_TIMEOUT_SECONDS)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=10000")
+    return conn
+
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     conn.execute("""
         CREATE TABLE IF NOT EXISTS car_ads (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,7 +166,7 @@ def init_db():
 
 def save_ad(channel: str, message_id: int, message_text: str, extracted: dict, telegram_date: str | None = None):
     now_iso = datetime.now(timezone.utc).isoformat()
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute(
             """
@@ -182,7 +194,7 @@ def save_ad(channel: str, message_id: int, message_text: str, extracted: dict, t
 
 def archive_yesterday_ads():
     now_iso = datetime.now(timezone.utc).isoformat()
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute("DELETE FROM archived_ads")
         conn.execute(
@@ -208,7 +220,7 @@ def archive_yesterday_ads():
 
 
 def clear_all_ads():
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute("DELETE FROM car_ads")
         conn.execute("DELETE FROM alert_matches")
@@ -218,7 +230,7 @@ def clear_all_ads():
 
 
 def add_channel(username: str):
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute(
             """
@@ -234,7 +246,7 @@ def add_channel(username: str):
 
 
 def channel_exists_active(username: str) -> bool:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         row = conn.execute(
             "SELECT 1 FROM channels WHERE username = ? AND active = 1", (username,)
@@ -245,7 +257,7 @@ def channel_exists_active(username: str) -> bool:
 
 
 def remove_channel(username: str):
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute("UPDATE channels SET active = 0 WHERE username = ?", (username,))
         conn.commit()
@@ -254,7 +266,7 @@ def remove_channel(username: str):
 
 
 def list_channels(active_only: bool = False) -> list[dict]:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     conn.row_factory = sqlite3.Row
     try:
         query = "SELECT * FROM channels"
@@ -268,7 +280,7 @@ def list_channels(active_only: bool = False) -> list[dict]:
 
 
 def get_setting(key: str, default: str | None = None) -> str | None:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     conn.row_factory = sqlite3.Row
     try:
         row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
@@ -278,7 +290,7 @@ def get_setting(key: str, default: str | None = None) -> str | None:
 
 
 def set_setting(key: str, value: str) -> None:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute(
             """
@@ -294,7 +306,7 @@ def set_setting(key: str, value: str) -> None:
 
 
 def add_price_alert(car_name: str, min_price: int | None, max_price: int | None) -> int:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         cur = conn.execute(
             """
@@ -310,7 +322,7 @@ def add_price_alert(car_name: str, min_price: int | None, max_price: int | None)
 
 
 def list_price_alerts() -> list[dict]:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     conn.row_factory = sqlite3.Row
     try:
         rows = conn.execute("SELECT * FROM price_alerts ORDER BY id DESC").fetchall()
@@ -320,7 +332,7 @@ def list_price_alerts() -> list[dict]:
 
 
 def delete_price_alert(alert_id: int) -> None:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute("DELETE FROM price_alerts WHERE id = ?", (alert_id,))
@@ -333,7 +345,7 @@ def check_and_record_alert_matches(car_name: str, price_amount: int | None, chan
     if price_amount is None or not car_name:
         return 0
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     conn.row_factory = sqlite3.Row
     try:
         alerts = conn.execute(
@@ -368,7 +380,7 @@ def check_and_record_alert_matches(car_name: str, price_amount: int | None, chan
 
 
 def list_alert_matches(unseen_only: bool = False) -> list[dict]:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     conn.row_factory = sqlite3.Row
     try:
         query = """
@@ -392,7 +404,7 @@ def list_alert_matches(unseen_only: bool = False) -> list[dict]:
 
 
 def mark_all_alert_matches_seen() -> None:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute("UPDATE alert_matches SET seen = 1 WHERE seen = 0")
         conn.commit()
@@ -402,7 +414,7 @@ def mark_all_alert_matches_seen() -> None:
 
 def add_monitored_group(group_username: str, last_scanned_at: str) -> None:
     now_iso = datetime.now(timezone.utc).isoformat()
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute(
             """
@@ -418,7 +430,7 @@ def add_monitored_group(group_username: str, last_scanned_at: str) -> None:
 
 
 def list_monitored_groups() -> list[dict]:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     conn.row_factory = sqlite3.Row
     try:
         rows = conn.execute("SELECT * FROM monitored_groups ORDER BY added_at DESC").fetchall()
@@ -428,13 +440,7 @@ def list_monitored_groups() -> list[dict]:
 
 
 def remove_monitored_group(group_username: str) -> None:
-    """
-    حذف کامل یک گروه از لیست مانیتورشونده‌ها — از این پس اسکن روزانه‌ی
-    خودکار برایش انجام نمی‌شود. کانال‌هایی که قبلاً از این گروه استخراج و
-    به جدول channels اضافه شده بودند، دست‌نخورده باقی می‌مانند (فقط خودِ
-    گروه از فهرست مانیتورینگ حذف می‌شود).
-    """
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute("DELETE FROM monitored_groups WHERE group_username = ?", (group_username,))
         conn.commit()
@@ -443,7 +449,7 @@ def remove_monitored_group(group_username: str) -> None:
 
 
 def update_monitored_group_scan_time(group_username: str, scanned_at: str) -> None:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute(
             "UPDATE monitored_groups SET last_scanned_at = ? WHERE group_username = ?",
@@ -455,12 +461,7 @@ def update_monitored_group_scan_time(group_username: str, scanned_at: str) -> No
 
 
 def add_extraction_log(group_username: str, run_at: str, added_channels: list[dict]) -> None:
-    """
-    ثبت یک رکورد در تاریخچه‌ی استخراج. added_channels لیستی از دیکشنری‌های
-    {"username": ..., "title": ...} است (نه فقط یوزرنیم خام) تا در گزارش
-    روزانه هم اسم واقعی کانال نشان داده شود.
-    """
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute(
             """
@@ -475,7 +476,7 @@ def add_extraction_log(group_username: str, run_at: str, added_channels: list[di
 
 
 def list_extraction_logs(group_username: str | None = None, limit: int = 100) -> list[dict]:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     conn.row_factory = sqlite3.Row
     try:
         if group_username:
@@ -503,16 +504,11 @@ def list_extraction_logs(group_username: str | None = None, limit: int = 100) ->
 
 
 def start_extraction_run() -> str:
-    """یک شناسه‌ی یکتای جدید برای یک اجرای استخراج می‌سازد (بدون ثبت هیچ ردیفی هنوز)."""
     return uuid.uuid4().hex
 
 
 def record_extraction_progress(run_id: str, username: str, title: str | None) -> None:
-    """
-    همان لحظه که یک کانال جدید در حین اسکن پیدا شد، ثبت می‌شود — تا
-    فرانت‌اند با poll کردن extraction-progress بتواند تقریباً زنده نشانش دهد.
-    """
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute(
             """
@@ -527,7 +523,7 @@ def record_extraction_progress(run_id: str, username: str, title: str | None) ->
 
 
 def list_extraction_progress(run_id: str) -> list[dict]:
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     conn.row_factory = sqlite3.Row
     try:
         rows = conn.execute(
@@ -540,8 +536,7 @@ def list_extraction_progress(run_id: str) -> list[dict]:
 
 
 def clear_extraction_progress(run_id: str) -> None:
-    """بعد از پایان یک اجرا (وقتی فرانت آخرین poll را انجام داد)، رکوردهای موقتش پاک می‌شوند تا جدول کوچک بماند."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     try:
         conn.execute("DELETE FROM extraction_progress WHERE run_id = ?", (run_id,))
         conn.commit()
