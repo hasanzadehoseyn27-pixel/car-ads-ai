@@ -20,6 +20,7 @@ from analytics import (
     get_no_price_ads,
     get_used_cars_report,
     get_archived_ads,
+    get_ads_by_channel,
 )
 from db import (
     list_channels,
@@ -39,6 +40,7 @@ from db import (
     start_extraction_run,
     list_extraction_progress,
     clear_extraction_progress,
+    get_message_counts_per_channel,
 )
 from channel_extractor import extract_channels_from_group, rescan_monitored_group_now, daily_scan_loop
 
@@ -140,6 +142,13 @@ def ads(
     return {"car_name": car_name, "trim": trim, "hours": hours, "count": len(data), "data": data}
 
 
+@app.get("/ads-by-channel")
+def ads_by_channel(channel: str = Query(...), hours: int = Query(168, ge=1, le=168)):
+    """همه‌ی آگهی‌های یک کانال خاص — برای عیب‌یابی سریع «چرا پیام‌های این کانال نمی‌آید»."""
+    data = get_ads_by_channel(channel=channel, hours=hours)
+    return {"channel": channel, "count": len(data), "data": data}
+
+
 @app.get("/daily-report")
 def daily_report():
     data = get_daily_lowest_prices()
@@ -182,6 +191,16 @@ def account_status():
     }
 
 
+@app.get("/message-counts")
+def message_counts():
+    """
+    آمار پیام‌های دریافتی امروز به تفکیک هر کانال — چه تعداد کل پیام
+    (چه آگهی چه غیرآگهی)، چه تعداد آن‌هایی که واقعاً آگهی بوده‌اند.
+    """
+    data = get_message_counts_per_channel()
+    return {"channels_count": len(data), "data": data}
+
+
 @app.get("/channel-preview")
 def channel_preview(username: str = Query(...)):
     username = username.strip().lstrip("@")
@@ -214,18 +233,6 @@ def delete_channel(username: str):
 
 @app.post("/channels/extract-from-group")
 async def extract_from_group(payload: GroupExtractIn):
-    """
-    قبل از استخراج واقعی، یک run_id تولید و به فرانت‌اند برمی‌گرداند —
-    ولی چون این endpoint خودش تا پایان استخراج صبر می‌کند (await کامل)،
-    فرانت‌اند باید هم‌زمان با صدا زدن این endpoint، از یک run_id از پیش
-    ساخته‌شده برای polling استفاده کند. برای همین، ابتدا یک run_id تولید
-    می‌کنیم و همان را به extract_channels_from_group پاس می‌دهیم — فرانت
-    این run_id را از پاسخ نهایی هم می‌گیرد، ولی چون استخراج ممکن است
-    دقیقه‌ها طول بکشد، فرانت باید همان لحظه که این endpoint را صدا می‌زند،
-    به‌صورت polling روی /channels/extraction-progress?run_id=... (با یک
-    run_id که همزمان و مستقل ساخته شده) شروع کند. برای سادگی، اینجا
-    run_id را در یک endpoint جدا (start-extraction-run) از پیش می‌سازیم.
-    """
     try:
         result = await extract_channels_from_group(payload.group_link)
         return {"status": "ok", **result}
@@ -239,11 +246,6 @@ async def extract_from_group(payload: GroupExtractIn):
 
 @app.post("/channels/start-extraction-run")
 def start_extraction_run_endpoint():
-    """
-    یک run_id جدید می‌سازد — فرانت‌اند ابتدا این را صدا می‌زند تا run_id
-    را در دست داشته باشد، سپس هم‌زمان (۱) extract-from-group را با همین
-    run_id در بدنه صدا می‌زند و (۲) شروع به polling می‌کند.
-    """
     return {"run_id": start_extraction_run()}
 
 
@@ -254,7 +256,6 @@ class GroupExtractWithRunIdIn(BaseModel):
 
 @app.post("/channels/extract-from-group-with-progress")
 async def extract_from_group_with_progress(payload: GroupExtractWithRunIdIn):
-    """نسخه‌ای از extract-from-group که run_id از پیش‌ساخته‌شده را می‌پذیرد تا فرانت بتواند هم‌زمان polling کند."""
     try:
         result = await extract_channels_from_group(payload.group_link, run_id=payload.run_id)
         return {"status": "ok", **result}
@@ -273,7 +274,6 @@ class RescanGroupIn(BaseModel):
 
 @app.post("/channels/rescan-group")
 async def rescan_group(payload: RescanGroupIn):
-    """بازاسکن دستی و فوری یک گروه از قبل مانیتورشونده."""
     try:
         result = await rescan_monitored_group_now(payload.group_username, run_id=payload.run_id)
         return {"status": "ok", **result}
@@ -287,7 +287,6 @@ async def rescan_group(payload: RescanGroupIn):
 
 @app.delete("/channels/monitored-groups/{group_username}")
 def delete_monitored_group(group_username: str):
-    """حذف یک گروه از فهرست مانیتورینگ خودکار روزانه."""
     remove_monitored_group(group_username)
     return {"status": "ok", "group_username": group_username}
 
@@ -305,14 +304,12 @@ def get_extraction_log(group_username: str | None = Query(None)):
 
 @app.get("/channels/extraction-progress")
 def get_extraction_progress(run_id: str = Query(...)):
-    """وضعیت لحظه‌ای یک اجرای در حال انجام — برای polling از فرانت‌اند."""
     data = list_extraction_progress(run_id)
     return {"data": data}
 
 
 @app.post("/channels/extraction-progress/clear")
 def clear_extraction_progress_endpoint(run_id: str = Query(...)):
-    """بعد از پایان نمایش، رکوردهای موقت این اجرا پاک می‌شوند."""
     clear_extraction_progress(run_id)
     return {"status": "ok"}
 

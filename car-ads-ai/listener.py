@@ -2,18 +2,20 @@
 مرحله‌ی دیتابیس: نتیجه‌ی هر آگهی واقعی (is_ad=true) در «بشکه» (SQLite) ذخیره می‌شود.
 طبق اصل بشکه‌ی خالی: فقط پیام‌های از این لحظه به بعد، بدون بک‌فیل تاریخچه.
 
-هر شب راس ساعت ۰۰:۰۰ به وقت تهران، آرشیو دیروز پر و کل جدول car_ads پاک می‌شود.
+هر شب راس ساعت ۰۰:۰۰ به وقت تهران، آرشیو دیروز پر و کل جدول car_ads و
+message_log پاک می‌شوند.
 
 account_status_loop: هر چند دقیقه یک‌بار، تعداد کانال/گروه‌هایی که این
 اکانت الان واقعاً عضوشان است را مستقیم از تلگرام می‌خواند و در جدول
 settings ذخیره می‌کند.
 
-نکته‌ی مهم درباره‌ی لاگ‌گیری: هر پیامی که به هر دلیلی رد می‌شود (چه چون
-کانال هنوز در active_channels نیست، چه چون بدون متن است) باید حتماً یک
-خط لاگ صریح بگذارد — قبلاً بعضی رد شدن‌ها کاملاً بی‌صدا بودند (مثلاً
-پیامی که channel_name اش هنوز در active_channels نبود)، که باعث می‌شد
-اگر کانالی به‌تازگی اضافه شده بود ولی هنوز sync نشده بود، پیام‌هایش
-بدون هیچ ردی از بین بروند و عیب‌یابی غیرممکن شود.
+نکته‌ی مهم درباره‌ی لاگ‌گیری: هر پیامی که به هر دلیلی رد می‌شود، حتماً
+یک خط لاگ صریح می‌گذارد — دیگر هیچ پیامی بی‌صدا گم نمی‌شود.
+
+log_received_message: علاوه بر ذخیره‌ی آگهی‌های واقعی در car_ads، هر پیام
+دریافتی (چه آگهی چه غیرآگهی) در message_log هم ثبت می‌شود — این برای
+پاسخ‌دادن به سؤال «این کانال امروز کلاً چندتا پیام فرستاده» است، مستقل
+از این‌که چندتایش واقعاً آگهی بوده.
 """
 import os
 import sys
@@ -36,6 +38,8 @@ from db import (
     check_and_record_alert_matches,
     archive_yesterday_ads,
     set_setting,
+    log_received_message,
+    clear_message_log,
 )
 
 load_dotenv()
@@ -60,6 +64,7 @@ ACCOUNT_CHANNEL_COUNT_KEY = "telegram_account_channel_count"
 ACCOUNT_UPDATED_AT_KEY = "telegram_account_updated_at"
 
 INTERACTIVE_LOGIN = "--login" in sys.argv
+SYNC_EXISTING_CHANNELS_MODE = "--sync-existing-channels" in sys.argv
 
 client = TelegramClient(
     "car_ads_session",
@@ -95,8 +100,6 @@ def process_message(text: str, source: str):
 @client.on(events.NewMessage())
 async def live_handler(event):
     if not event.is_channel:
-        # پیام از یک چت خصوصی یا گروه معمولی است، نه کانال — عمداً و بی‌صدا
-        # رد می‌شود، چون این پروژه فقط کانال‌ها را دنبال می‌کند.
         return
 
     if event.chat is None:
@@ -106,9 +109,6 @@ async def live_handler(event):
     channel_name = event.chat.username or str(event.chat_id)
 
     if channel_name not in active_channels:
-        # این لاگ عمداً صریح و همیشگی است — قبلاً این حالت کاملاً بی‌صدا رد
-        # می‌شد که باعث می‌شد پیام‌های کانال‌های تازه‌اضافه‌شده (که هنوز
-        # channel_sync_loop به‌روزشان نکرده) بدون هیچ ردی گم شوند.
         print(
             f"⏭️  پیام از «{channel_name}» رد شد — این کانال هنوز در لیست کانال‌های فعال "
             f"(active_channels) نیست. اگر همین الان این کانال را اضافه کرده‌اید، تا "
@@ -123,6 +123,12 @@ async def live_handler(event):
     result = await loop.run_in_executor(
         None, process_message, text, f"🔴 زنده @{channel_name}"
     )
+
+    if result is not None:
+        try:
+            log_received_message(channel=channel_name, is_ad=bool(result.get("is_ad")))
+        except Exception as e:
+            print(f"⚠️ خطا در ثبت شمارنده‌ی پیام: {e}")
 
     if result and result.get("is_ad"):
         save_ad(
@@ -146,8 +152,6 @@ async def live_handler(event):
         except Exception as e:
             print(f"⚠️ خطا در بررسی هشدار قیمت: {e}")
     elif result is not None:
-        # is_ad=false بوده — یعنی AI تشخیص داده این پیام آگهی خودرو نیست.
-        # عمداً لاگ می‌شود تا مشخص باشد پیام واقعاً پردازش شده، فقط رد شده.
         print(f"⏭️  پیام از «{channel_name}» پردازش شد ولی is_ad=false بود — رد شد")
 
 
@@ -231,7 +235,46 @@ async def midnight_cleanup_loop():
             print("🧹 نیمه‌شب شد — کل جدول آگهی‌ها پاک شد. امروز از صفر شروع می‌شود.")
         except Exception as e:
             print(f"⚠️ خطا در پاکسازی نیمه‌شب: {e}")
+        try:
+            clear_message_log()
+            print("🧹 شمارنده‌ی پیام‌های امروز هم پاک شد.")
+        except Exception as e:
+            print(f"⚠️ خطا در پاکسازی شمارنده‌ی پیام: {e}")
         await asyncio.sleep(2)
+
+
+async def sync_existing_channels():
+    """
+    حالت اجرایی جدا (--sync-existing-channels): لیست کانال/گروه‌هایی که
+    این اکانت از قبل واقعاً در تلگرام عضوشان است را می‌خواند، با جدول
+    channels مقایسه می‌کند، و هر کدام که هنوز در دیتابیس ما نبودند را
+    اضافه می‌کند. بعد از اتمام، بدون ورود به حلقه‌ی اصلی گوش‌دادن خارج
+    می‌شود — این حالت فقط برای همگام‌سازی یک‌باره است.
+    """
+    from db import add_channel, list_channels as _list_channels
+
+    existing_usernames = {c["username"].lower() for c in _list_channels()}
+    found_new: list[str] = []
+    total_dialogs = 0
+
+    async for dialog in client.iter_dialogs():
+        if not (dialog.is_channel or dialog.is_group):
+            continue
+        total_dialogs += 1
+        username = getattr(dialog.entity, "username", None)
+        if not username:
+            continue
+        if username.lower() not in existing_usernames:
+            add_channel(username)
+            found_new.append(username)
+            existing_usernames.add(username.lower())
+
+    print(f"\n📊 بررسی کامل شد — {total_dialogs} کانال/گروه بررسی شد.")
+    print(f"🆕 {len(found_new)} کانال جدید به لیست اضافه شد:")
+    for uname in found_new:
+        print(f"   ✅ @{uname}")
+    if not found_new:
+        print("   (هیچ کانال جدیدی پیدا نشد — همه از قبل در دیتابیس بودند)")
 
 
 async def main():
@@ -253,6 +296,10 @@ async def main():
             sys.exit(1)
 
     print("✅ وصل شد.")
+
+    if SYNC_EXISTING_CHANNELS_MODE:
+        await sync_existing_channels()
+        return
 
     asyncio.create_task(channel_sync_loop())
     asyncio.create_task(midnight_cleanup_loop())

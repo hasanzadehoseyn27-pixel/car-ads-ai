@@ -10,15 +10,14 @@
 جدول monitored_groups / channel_extraction_log: استخراج خودکار روزانه‌ی کانال از گروه.
 جدول extraction_progress: وضعیت لحظه‌ای یک اجرای در حال انجام استخراج.
 
-نکته‌ی مهم درباره‌ی هم‌زمانی: این فایل هم‌زمان توسط چند پروسه نوشته می‌شود
-(listener.py مدام آگهی/وضعیت اکانت می‌نویسد، api.py هنگام استخراج گروه
-مدام extraction_progress می‌نویسد). برای اینکه این نوشتن‌های هم‌زمان به
-خطای «database is locked» نخورند، همه‌ی اتصال‌ها از تابع _connect() عبور
-می‌کنند که:
-  ۱) timeout بالا (۱۰ ثانیه) دارد — یعنی به‌جای خطای فوری، تا ۱۰ ثانیه صبر
-     می‌کند تا قفل باز شود.
-  ۲) journal_mode را روی WAL می‌گذارد — حالتی از SQLite که مخصوص همین
-     سناریوهای نوشتن/خوانش هم‌زمان طراحی شده و تداخل را به‌شدت کم می‌کند.
+جدول message_log: هر پیامی که از یک کانال فعال دریافت و توسط AI پردازش
+می‌شود، اینجا ثبت می‌شود — چه آگهی تشخیص داده شود چه نه. هدفش صرفاً
+آمارگیری («این کانال امروز کلاً چندتا پیام فرستاده») است، نه ذخیره‌ی
+محتوای آگهی — آن کار برعهده‌ی car_ads است.
+
+نکته‌ی مهم درباره‌ی هم‌زمانی: این فایل هم‌زمان توسط چند پروسه نوشته
+می‌شود؛ همه‌ی اتصال‌ها از تابع _connect() عبور می‌کنند که WAL mode و
+busy_timeout بالا دارد تا خطای «database is locked» رخ ندهد.
 """
 import json
 import sqlite3
@@ -154,6 +153,18 @@ def init_db():
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_extraction_progress_run_id
         ON extraction_progress(run_id)
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS message_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel TEXT NOT NULL,
+            received_at TEXT NOT NULL,
+            is_ad INTEGER NOT NULL
+        )
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_message_log_channel
+        ON message_log(channel)
     """)
 
     existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(car_ads)").fetchall()}
@@ -539,6 +550,59 @@ def clear_extraction_progress(run_id: str) -> None:
     conn = _connect()
     try:
         conn.execute("DELETE FROM extraction_progress WHERE run_id = ?", (run_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def log_received_message(channel: str, is_ad: bool) -> None:
+    """
+    هر پیامی که از یک کانال فعال دریافت و توسط AI پردازش می‌شود، اینجا
+    ثبت می‌شود — چه آگهی تشخیص داده شود چه نه. این جدول جدا از car_ads
+    است و هدفش صرفاً آمارگیری («این کانال امروز کلاً چندتا پیام فرستاده»)
+    است، نه ذخیره‌ی محتوای آگهی.
+    """
+    conn = _connect()
+    try:
+        conn.execute(
+            "INSERT INTO message_log (channel, received_at, is_ad) VALUES (?, ?, ?)",
+            (channel, datetime.now(timezone.utc).isoformat(), 1 if is_ad else 0),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_message_counts_per_channel() -> list[dict]:
+    """
+    برای هر کانال، تعداد کل پیام‌های دریافتی امروز (چه آگهی چه غیرآگهی) و
+    تعداد آن‌هایی که واقعاً آگهی تشخیص داده شده‌اند را برمی‌گرداند —
+    مرتب‌شده بر اساس تعداد کل، نزولی.
+    """
+    conn = _connect()
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                channel,
+                COUNT(*) AS total_messages,
+                SUM(is_ad) AS ad_messages
+            FROM message_log
+            GROUP BY channel
+            ORDER BY total_messages DESC
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+    return [dict(row) for row in rows]
+
+
+def clear_message_log() -> None:
+    """پاکسازی جدول message_log — برای اجرا در کنار پاکسازی نیمه‌شب، تا هر روز از صفر شروع شود."""
+    conn = _connect()
+    try:
+        conn.execute("DELETE FROM message_log")
         conn.commit()
     finally:
         conn.close()

@@ -705,7 +705,8 @@
       #wantedAdsTableWrap,
       #noPriceAdsList,
       #usedCarsTableWrap,
-      #dailyReportList {
+      #dailyReportList,
+      #channelSearchTableWrap {
         overflow-y: auto;
         padding: 14px 20px;
         flex: 1;
@@ -928,8 +929,6 @@
         color: var(--text-faint);
         margin-top: 4px;
       }
-
-      /* ---------- افزودن گروه ---------- */
       .add-group-form {
         padding: 18px 20px;
         display: flex;
@@ -1063,8 +1062,6 @@
         gap: 6px;
         flex-shrink: 0;
       }
-
-      /* ---------- مودال گزارش استخراج روزانه (مجزا) ---------- */
       .daily-report-header {
         padding: 12px 20px;
         border-bottom: 1px solid var(--card-border);
@@ -1114,6 +1111,40 @@
         color: var(--text-faint);
         font-style: italic;
         font-size: 12.5px;
+      }
+
+      /* ---------- جستجوی کانال (فیچر جدید) ---------- */
+      .channel-search-input-area {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--card-border);
+      }
+      .channel-search-input-area input {
+        width: 100%;
+        font-size: 14px;
+        padding: 9px 14px;
+      }
+      .channel-search-hint {
+        font-size: 11.5px;
+        color: var(--text-faint);
+        margin-top: 8px;
+      }
+      .channel-search-stats {
+        padding: 8px 20px;
+        color: var(--text-dim);
+        font-size: 12.5px;
+        border-bottom: 1px solid var(--card-border);
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .channel-search-stats .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .channel-search-stats .stat-value {
+        color: var(--accent-bright);
+        font-weight: 700;
       }
 
       @media (max-width: 1024px) {
@@ -1240,7 +1271,8 @@
         #wantedAdsTableWrap,
         #noPriceAdsList,
         #alertRulesList,
-        #dailyReportList {
+        #dailyReportList,
+        #channelSearchTableWrap {
           padding: 10px 14px;
         }
         .ad-card {
@@ -1279,6 +1311,10 @@
         }
         .monitored-group-actions {
           justify-content: flex-end;
+        }
+        .channel-search-stats {
+          flex-direction: column;
+          gap: 6px;
         }
       }
     </style>
@@ -1360,6 +1396,12 @@
           <h1>تحلیل قیمت آگهی‌های خودرو</h1>
           <span class="live-dot" id="liveDot" title="بروزرسانی خودکار"></span>
           <div class="header-actions">
+            <button
+              class="header-secondary-btn secondary"
+              onclick="openChannelSearchModal()"
+            >
+              🔎 جستجوی کانال
+            </button>
             <button
               class="header-secondary-btn secondary"
               onclick="openWantedAdsModal()"
@@ -1519,6 +1561,61 @@
       </div>
     </div>
 
+    <!-- مدال جستجوی کانال (فیچر جدید) -->
+    <div
+      id="channelSearchModalOverlay"
+      class="modal-overlay"
+      onclick="closeChannelSearchModalOnOverlay(event)"
+    >
+      <div class="modal-box modal-wide">
+        <div class="modal-header">
+          <h2>🔎 جستجوی آگهی‌های یک کانال خاص</h2>
+          <button onclick="closeChannelSearchModal()">✕ بستن</button>
+        </div>
+        <div class="channel-search-input-area">
+          <input
+            type="text"
+            id="channelSearchInput"
+            placeholder="نام کاربری کانال را تایپ کن (مثلاً autopalasco یا بخشی از آن)..."
+            oninput="onChannelSearchInput()"
+          />
+          <div class="channel-search-hint">
+            تطبیق دقیق روی نام کانال است — کل نام کاربری کانال (بدون @) را وارد
+            کن تا همه‌ی آگهی‌های ذخیره‌شده‌ی آن را ببینی.
+          </div>
+        </div>
+        <div
+          class="channel-search-stats"
+          id="channelSearchStats"
+          style="display: none"
+        >
+          <span class="stat-item"
+            >تعداد کل آگهی این کانال:
+            <span class="stat-value" id="statTotalAds">۰</span></span
+          >
+        </div>
+        <div id="channelSearchTableWrap">
+          <div class="table-scroll">
+            <table id="channelSearchTable">
+              <thead>
+                <tr>
+                  <th class="row-num">ردیف</th>
+                  <th>مدل خودرو</th>
+                  <th>قیمت</th>
+                  <th>رنگ</th>
+                  <th>سال</th>
+                  <th>کارکرد</th>
+                  <th>نوع آگهی</th>
+                  <th>زمان پست</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- مدال آگهی‌های خریدارم (جدولی + صفحه‌بندی) -->
     <div
       id="wantedAdsModalOverlay"
@@ -1646,7 +1743,7 @@
       </div>
     </div>
 
-    <!-- مدال جزئیات مشترک (متن کامل پیام) — برای کلیک روی ردیف‌های کارکرده/خریدارم -->
+    <!-- مدال جزئیات مشترک (متن کامل پیام) -->
     <div
       id="adDetailModalOverlay"
       class="modal-overlay"
@@ -1664,7 +1761,7 @@
       </div>
     </div>
 
-    <!-- مدال افزودن گروه (استخراج + نمایش زنده + مدیریت گروه‌های مانیتورشونده) -->
+    <!-- مدال افزودن گروه -->
     <div
       id="addGroupModalOverlay"
       class="modal-overlay"
@@ -1900,6 +1997,7 @@
       const DEFAULT_REFRESH_INTERVAL_MS = 10000;
       const CHANNEL_PREVIEW_DEBOUNCE_MS = 450;
       const TABLE_SEARCH_DEBOUNCE_MS = 450;
+      const CHANNEL_SEARCH_DEBOUNCE_MS = 450;
       const ROWS_PER_PAGE = 10;
       const ALERT_CHECK_INTERVAL_MS = 15000;
       const ACCOUNT_STATUS_REFRESH_MS = 20000;
@@ -1914,6 +2012,7 @@
       let extractionProgressTimer = null;
       let currentHoursFilter = 24;
       let tableSearchDebounceTimeout = null;
+      let channelSearchDebounceTimeout = null;
       let currentAlertPriceMode = "range";
       let currentExtractionRunId = null;
       let shownProgressIds = new Set();
@@ -2691,12 +2790,106 @@
         if (event.target.id === "channelsModalOverlay") closeChannelsModal();
       }
 
-      // ---------- مودال جزئیات مشترک (متن کامل پیام) ----------
+      // ---------- جستجوی کانال (فیچر جدید) ----------
+      function openChannelSearchModal() {
+        document.getElementById("channelSearchInput").value = "";
+        document.getElementById("channelSearchStats").style.display = "none";
+        document.querySelector("#channelSearchTable tbody").innerHTML =
+          '<tr><td colspan="8" class="empty-cell">نام کانال را در بالا تایپ کن</td></tr>';
+        document.getElementById("channelSearchModalOverlay").style.display =
+          "flex";
+        setTimeout(
+          () => document.getElementById("channelSearchInput").focus(),
+          50
+        );
+      }
+
+      function onChannelSearchInput() {
+        clearTimeout(channelSearchDebounceTimeout);
+        const value = document
+          .getElementById("channelSearchInput")
+          .value.trim();
+        if (!value) {
+          document.getElementById("channelSearchStats").style.display = "none";
+          document.querySelector("#channelSearchTable tbody").innerHTML =
+            '<tr><td colspan="8" class="empty-cell">نام کانال را در بالا تایپ کن</td></tr>';
+          return;
+        }
+        channelSearchDebounceTimeout = setTimeout(
+          () => searchByChannel(value),
+          CHANNEL_SEARCH_DEBOUNCE_MS
+        );
+      }
+
+      async function searchByChannel(channelName) {
+        const tbody = document.querySelector("#channelSearchTable tbody");
+        tbody.innerHTML =
+          '<tr><td colspan="8" class="empty-cell">در حال جستجو...</td></tr>';
+        try {
+          const res = await fetch(
+            `/api/car-ads-by-channel?channel=${encodeURIComponent(
+              channelName
+            )}&hours=168`
+          );
+          const json = await res.json();
+          if (json.error) {
+            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">❌ ${json.error}</td></tr>`;
+            document.getElementById("channelSearchStats").style.display =
+              "none";
+            return;
+          }
+          const ads = json.data || [];
+          document.getElementById("channelSearchStats").style.display = "flex";
+          document.getElementById("statTotalAds").textContent =
+            ads.length.toLocaleString("fa-IR");
+
+          if (ads.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">هیچ آگهی‌ای از این کانال پیدا نشد — یا کانال دقیقاً همین نام را ندارد، یا پیامی از آن پردازش نشده است</td></tr>`;
+            return;
+          }
+
+          tbody.innerHTML = "";
+          ads.forEach((ad, i) => {
+            const tr = document.createElement("tr");
+            tr.onclick = () =>
+              openAdDetailModal(ad, "جزئیات آگهی — کانال " + ad.channel);
+            const adTypeLabel =
+              ad.ad_type === "wanted_to_buy" ? "خریدارم" : "فروش";
+            tr.innerHTML = `
+            <td class="row-num">${(i + 1).toLocaleString("fa-IR")}</td>
+            <td>${ad.car_name || "—"}</td>
+            <td>${formatToman(ad.price_amount)}</td>
+            <td>${ad.color || "—"}</td>
+            <td>${ad.production_year || "—"}</td>
+            <td>${
+              ad.mileage_km
+                ? ad.mileage_km.toLocaleString("fa-IR") + " کیلومتر"
+                : "صفر"
+            }</td>
+            <td>${adTypeLabel}</td>
+            <td>${formatDate(ad.telegram_date || ad.created_at)}</td>
+          `;
+            tbody.appendChild(tr);
+          });
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="8" class="empty-cell">❌ خطا: ${err.message}</td></tr>`;
+        }
+      }
+
+      function closeChannelSearchModal() {
+        document.getElementById("channelSearchModalOverlay").style.display =
+          "none";
+      }
+      function closeChannelSearchModalOnOverlay(event) {
+        if (event.target.id === "channelSearchModalOverlay")
+          closeChannelSearchModal();
+      }
+
+      // ---------- مودال جزئیات مشترک ----------
       function openAdDetailModal(ad, titlePrefix) {
         document.getElementById("adDetailTitle").textContent =
           titlePrefix || "جزئیات آگهی";
         const body = document.getElementById("adDetailBody");
-
         const priceText = ad.price_amount
           ? formatToman(ad.price_amount)
           : ad.price_label
@@ -2712,7 +2905,7 @@
             "کارکرد: " + ad.mileage_km.toLocaleString("fa-IR") + " کیلومتر"
           );
         if (ad.city) detailsParts.push("شهر: " + ad.city);
-
+        if (ad.channel) detailsParts.push("کانال: @" + ad.channel);
         body.innerHTML = `
         <div class="ad-row"><div class="price-group"><strong>${priceText}</strong></div>
           ${
@@ -2837,7 +3030,7 @@
           closeNoPriceAdsModal();
       }
 
-      // ---------- مودال خودروهای کارکرده (جدولی + صفحه‌بندی + جزئیات) ----------
+      // ---------- مودال خودروهای کارکرده ----------
       async function openUsedCarsModal() {
         document.getElementById("searchUsedCarsModal").value = "";
         document.getElementById("modalMetaUsedCars").textContent =
@@ -2949,7 +3142,7 @@
         if (event.target.id === "usedCarsModalOverlay") closeUsedCarsModal();
       }
 
-      // ---------- مودال آگهی‌های خریدارم (جدولی + صفحه‌بندی + جزئیات) ----------
+      // ---------- مودال آگهی‌های خریدارم ----------
       async function openWantedAdsModal() {
         document.getElementById("searchWantedAdsModal").value = "";
         document.getElementById("modalMetaWanted").textContent =
@@ -3058,7 +3251,7 @@
         if (event.target.id === "wantedAdsModalOverlay") closeWantedAdsModal();
       }
 
-      // ---------- کمکی: صفحه‌بندی عمومی برای مودال‌های جدولی ----------
+      // ---------- کمکی: صفحه‌بندی عمومی ----------
       function renderGenericPagination(
         containerId,
         totalCount,
@@ -3090,7 +3283,7 @@
           onPageChange(page + 1);
       }
 
-      // ---------- افزودن گروه (استخراج + نمایش زنده + مدیریت گروه‌ها) ----------
+      // ---------- افزودن گروه ----------
       async function openAddGroupModal() {
         document.getElementById("groupLinkInput").value = "";
         document.getElementById("addGroupError").textContent = "";

@@ -62,6 +62,30 @@ fastify.get("/api/car-ads-ads", async (req, reply) => {
   }
 });
 
+fastify.get("/api/car-ads-by-channel", async (req, reply) => {
+  const channel = req.query.channel;
+  const hours = req.query.hours || 168;
+  if (!channel) {
+    reply.code(400);
+    return { error: "پارامتر channel الزامی است" };
+  }
+  try {
+    const res = await fetch(
+      `${ANALYTICS_SERVICE_URL}/ads-by-channel?channel=${encodeURIComponent(
+        channel
+      )}&hours=${hours}`
+    );
+    if (!res.ok) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai پاسخ درستی نداد" };
+    }
+    return await res.json();
+  } catch (err) {
+    reply.code(502);
+    return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+  }
+});
+
 fastify.get("/api/car-ads-daily-report", async (req, reply) => {
   try {
     const res = await fetch(`${ANALYTICS_SERVICE_URL}/daily-report`);
@@ -144,6 +168,20 @@ fastify.get("/api/car-ads-archive", async (req, reply) => {
 fastify.get("/api/car-ads-account-status", async (req, reply) => {
   try {
     const res = await fetch(`${ANALYTICS_SERVICE_URL}/account-status`);
+    if (!res.ok) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai پاسخ درستی نداد" };
+    }
+    return await res.json();
+  } catch (err) {
+    reply.code(502);
+    return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+  }
+});
+
+fastify.get("/api/car-ads-message-counts", async (req, reply) => {
+  try {
+    const res = await fetch(`${ANALYTICS_SERVICE_URL}/message-counts`);
     if (!res.ok) {
       reply.code(502);
       return { error: "سرویس car-ads-ai پاسخ درستی نداد" };

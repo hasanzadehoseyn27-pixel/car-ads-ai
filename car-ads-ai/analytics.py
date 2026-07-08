@@ -1,19 +1,5 @@
 """
 لایه‌ی تحلیل/تجمیع قیمت‌ها — روی داده‌های «بشکه» (car_ads.db).
-
-پارامتر search (جدید): وقتی داده شود، قبل از گروه‌بندی روی هر آگهی خام چک
-می‌شود که آیا هر کدام از فیلدهای car_name/trim/color/phone/notes/
-message_text/city/price_label شامل متن جستجو هست یا نه — اگر بله، آن آگهی
-نگه داشته می‌شود. بعد از این فیلتر، گروه‌بندی و محاسبه‌ی آمار (تعداد/
-min/max/avg) فقط از همین زیرمجموعه‌ی match‌شده انجام می‌شود، نه از کل
-آگهی‌های آن مدل. یعنی اگر کاربر «برقی» جستجو کند، مدلی که ۲۶ آگهی دارد ولی
-فقط ۳ تای آن‌ها «برقی» بوده‌اند، در جدول با «۳ آگهی» و آمار قیمتی فقط
-همان ۳ آگهی نشان داده می‌شود — نه کل ۲۶ آگهی.
-
-چون car_name/trim هم در این haystack هستند، جستجوهای مبتنی بر اسم مدل هم
-از قبل به همین شکل کار می‌کنند (مثلاً «سورن پارس» با هر دو زیرمدل «سورن
-پارس برقی» و «سورن پارس سیمی» match می‌شود، ولی «سورن پارس سیمی» فقط با
-همان یکی).
 """
 import sqlite3
 from pathlib import Path
@@ -56,11 +42,6 @@ def _display_name(car_name: str, trim: str | None) -> str:
 
 
 def _matches_search(item: dict, search_lower: str) -> bool:
-    """
-    چک می‌کند آیا هر کدام از فیلدهای مرتبط این آگهی شامل متن جستجو هست —
-    هم اسم مدل/تیپ (برای سرچ مبتنی بر مدل) هم محتوای واقعی پیام/رنگ/تلفن/
-    توضیحات/شهر/برچسب قیمت (برای سرچ محتوایی).
-    """
     fields = [
         item.get("car_name"),
         item.get("trim"),
@@ -76,24 +57,6 @@ def _matches_search(item: dict, search_lower: str) -> bool:
 
 
 def get_price_analytics(hours: int = 24, only_new: bool = True, search: str | None = None) -> list[dict]:
-    """
-    خروجی: لیستی از دیکشنری‌ها، هر کدوم برای یک ترکیب (car_name, trim):
-        {
-            "car_name": str,
-            "trim": str | None,
-            "display_name": str,
-            "total_ads": int,
-            "priced_ads": int,
-            "min_price": int | None,
-            "avg_price": int | None,
-            "max_price": int | None,
-            "last_seen": str,
-        }
-
-    اگر search داده شود، فقط آگهی‌هایی که با _matches_search تطبیق دارند
-    وارد محاسبه می‌شوند و مدل‌هایی که هیچ آگهی match‌شده‌ای ندارند اصلاً در
-    خروجی ظاهر نمی‌شوند.
-    """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
     conn = sqlite3.connect(DB_PATH)
@@ -179,6 +142,38 @@ def get_ads_for_model(car_name: str, trim: str | None = None, hours: int = 24, o
         query += " ORDER BY COALESCE(telegram_date, created_at) DESC"
 
         rows = conn.execute(query, params).fetchall()
+    finally:
+        conn.close()
+
+    result = []
+    for row in rows:
+        item = dict(row)
+        item["telegram_link"] = f"https://t.me/{item['channel']}/{item['message_id']}"
+        result.append(item)
+    return result
+
+
+def get_ads_by_channel(channel: str, hours: int = 168) -> list[dict]:
+    """
+    همه‌ی آگهی‌های ذخیره‌شده‌ی یک کانال خاص را برمی‌گرداند (بدون توجه به
+    مدل خودرو یا صفر/کارکرده‌بودن) — برای پیدا کردن سریع پیام‌های یک کانال
+    مشخص که کاربر شک دارد شاید پردازش نشده باشند. تطبیق نام کانال
+    case-insensitive و دقیق (نه substring) است.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM car_ads
+            WHERE COALESCE(telegram_date, created_at) >= ?
+              AND channel = ? COLLATE NOCASE
+            ORDER BY COALESCE(telegram_date, created_at) DESC
+            """,
+            (cutoff, channel.strip()),
+        ).fetchall()
     finally:
         conn.close()
 
