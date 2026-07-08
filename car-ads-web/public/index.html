@@ -703,7 +703,7 @@
       #channelsModalList,
       #alertMatchesList,
       #wantedAdsTableWrap,
-      #noPriceAdsList,
+      #noPriceAdsTableWrap,
       #usedCarsTableWrap,
       #dailyReportList,
       #channelSearchTableWrap {
@@ -1112,8 +1112,6 @@
         font-style: italic;
         font-size: 12.5px;
       }
-
-      /* ---------- جستجوی کانال (فیچر جدید) ---------- */
       .channel-search-input-area {
         padding: 16px 20px;
         border-bottom: 1px solid var(--card-border);
@@ -1269,7 +1267,7 @@
         #channelsModalList,
         #alertMatchesList,
         #wantedAdsTableWrap,
-        #noPriceAdsList,
+        #noPriceAdsTableWrap,
         #alertRulesList,
         #dailyReportList,
         #channelSearchTableWrap {
@@ -1483,7 +1481,7 @@
           <input
             type="text"
             id="searchTable"
-            placeholder="جستجوی مدل خودرو یا محتوای آگهی (مثلاً برقی، سفید، تهران...)"
+            placeholder="جستجوی مدل، محتوا، یا نام کانال (مثلاً autopalasco)..."
             oninput="onSearchInput()"
           />
           <span class="result-count" id="resultCount"></span>
@@ -1561,7 +1559,7 @@
       </div>
     </div>
 
-    <!-- مدال جستجوی کانال (فیچر جدید) -->
+    <!-- مدال جستجوی کانال -->
     <div
       id="channelSearchModalOverlay"
       class="modal-overlay"
@@ -1616,7 +1614,7 @@
       </div>
     </div>
 
-    <!-- مدال آگهی‌های خریدارم (جدولی + صفحه‌بندی) -->
+    <!-- مدال آگهی‌های خریدارم -->
     <div
       id="wantedAdsModalOverlay"
       class="modal-overlay"
@@ -1631,7 +1629,7 @@
           <input
             type="text"
             id="searchWantedAdsModal"
-            placeholder="جستجو (مدل، تلفن، رنگ، توضیحات، متن پیام...)"
+            placeholder="جستجو (مدل، تلفن، رنگ، توضیحات، متن پیام، نام کانال...)"
             oninput="filterWantedAds()"
           />
         </div>
@@ -1665,13 +1663,13 @@
       </div>
     </div>
 
-    <!-- مدال آگهی‌های بدون قیمت -->
+    <!-- مدال آگهی‌های بدون قیمت — جدولی + صفحه‌بندی -->
     <div
       id="noPriceAdsModalOverlay"
       class="modal-overlay"
       onclick="closeNoPriceAdsModalOnOverlay(event)"
     >
-      <div class="modal-box">
+      <div class="modal-box modal-wide">
         <div class="modal-header">
           <h2>❔ آگهی‌های بدون قیمت مشخص</h2>
           <button onclick="closeNoPriceAdsModal()">✕ بستن</button>
@@ -1680,7 +1678,7 @@
           <input
             type="text"
             id="searchNoPriceModal"
-            placeholder="جستجو (مدل، تلفن، رنگ، توضیحات، متن پیام...)"
+            placeholder="جستجو (مدل، تلفن، رنگ، توضیحات، متن پیام، نام کانال...)"
             oninput="filterNoPriceAds()"
           />
         </div>
@@ -1688,11 +1686,33 @@
           id="modalMetaNoPrice"
           style="padding: 8px 20px; color: var(--text-dim); font-size: 12.5px"
         ></div>
-        <div id="noPriceAdsList"></div>
+        <div id="noPriceAdsTableWrap">
+          <div class="table-scroll">
+            <table id="noPriceAdsTable">
+              <thead>
+                <tr>
+                  <th class="row-num">ردیف</th>
+                  <th>مدل خودرو</th>
+                  <th>برچسب قیمت</th>
+                  <th>رنگ</th>
+                  <th>سال</th>
+                  <th>شهر</th>
+                  <th>تلفن</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div
+          class="pagination"
+          id="noPriceAdsPagination"
+          style="padding: 0 20px 14px"
+        ></div>
       </div>
     </div>
 
-    <!-- مدال خودروهای کارکرده — جدولی + صفحه‌بندی -->
+    <!-- مدال خودروهای کارکرده -->
     <div
       id="usedCarsModalOverlay"
       class="modal-overlay"
@@ -1707,7 +1727,7 @@
           <input
             type="text"
             id="searchUsedCarsModal"
-            placeholder="جستجو (مدل، رنگ، تیپ، تلفن، شهر، توضیحات...)"
+            placeholder="جستجو (مدل، رنگ، تیپ، تلفن، شهر، توضیحات، نام کانال...)"
             oninput="filterUsedCars()"
           />
         </div>
@@ -1743,7 +1763,7 @@
       </div>
     </div>
 
-    <!-- مدال جزئیات مشترک (متن کامل پیام) -->
+    <!-- مدال جزئیات مشترک -->
     <div
       id="adDetailModalOverlay"
       class="modal-overlay"
@@ -2028,6 +2048,7 @@
       let channelPreviewTimeout = null;
 
       let currentNoPriceAds = [];
+      let currentNoPriceAdsPage = 1;
       let currentWantedAds = [];
       let currentWantedAdsPage = 1;
       let currentUsedCars = [];
@@ -2605,6 +2626,7 @@
             ad.message_text,
             ad.city,
             ad.price_label,
+            ad.channel,
           ]
             .filter(Boolean)
             .join(" ")
@@ -2790,7 +2812,7 @@
         if (event.target.id === "channelsModalOverlay") closeChannelsModal();
       }
 
-      // ---------- جستجوی کانال (فیچر جدید) ----------
+      // ---------- جستجوی کانال ----------
       function openChannelSearchModal() {
         document.getElementById("channelSearchInput").value = "";
         document.getElementById("channelSearchStats").style.display = "none";
@@ -2938,12 +2960,13 @@
         if (event.target.id === "adDetailModalOverlay") closeAdDetailModal();
       }
 
-      // ---------- مودال آگهی‌های بدون قیمت ----------
+      // ---------- مودال آگهی‌های بدون قیمت — جدولی + صفحه‌بندی ----------
       async function openNoPriceAdsModal() {
         document.getElementById("searchNoPriceModal").value = "";
         document.getElementById("modalMetaNoPrice").textContent =
           "در حال بارگذاری...";
-        document.getElementById("noPriceAdsList").innerHTML = "";
+        document.querySelector("#noPriceAdsTable tbody").innerHTML = "";
+        currentNoPriceAdsPage = 1;
         document.getElementById("noPriceAdsModalOverlay").style.display =
           "flex";
         try {
@@ -2960,50 +2983,62 @@
           ).textContent = `${currentNoPriceAds.length.toLocaleString(
             "fa-IR"
           )} آگهی بدون قیمت`;
-          renderNoPriceAdsList(currentNoPriceAds);
+          renderNoPriceAdsTable(currentNoPriceAds);
         } catch (err) {
           document.getElementById("modalMetaNoPrice").textContent =
             "❌ خطا: " + err.message;
         }
       }
-      function renderNoPriceAdsList(ads) {
-        const list = document.getElementById("noPriceAdsList");
-        list.innerHTML = "";
-        if (ads.length === 0) {
-          list.innerHTML = '<div class="empty">آگهی‌ای پیدا نشد</div>';
-          return;
+
+      function renderNoPriceAdsTable(ads) {
+        const tbody = document.querySelector("#noPriceAdsTable tbody");
+        const totalPages = Math.max(1, Math.ceil(ads.length / ROWS_PER_PAGE));
+        currentNoPriceAdsPage = Math.min(
+          Math.max(1, currentNoPriceAdsPage),
+          totalPages
+        );
+        const startIdx = (currentNoPriceAdsPage - 1) * ROWS_PER_PAGE;
+        const pageItems = ads.slice(startIdx, startIdx + ROWS_PER_PAGE);
+        tbody.innerHTML = "";
+        if (pageItems.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">آگهی بدون قیمتی پیدا نشد</td></tr>`;
+        } else {
+          pageItems.forEach((ad, i) => {
+            const tr = document.createElement("tr");
+            tr.onclick = () => openAdDetailModal(ad, "جزئیات آگهی بدون قیمت");
+            tr.innerHTML = `
+            <td class="row-num">${(startIdx + i + 1).toLocaleString(
+              "fa-IR"
+            )}</td>
+            <td>${ad.car_name || "—"}</td>
+            <td>${ad.price_label || "—"}</td>
+            <td>${ad.color || "—"}</td>
+            <td>${ad.production_year || "—"}</td>
+            <td>${ad.city || "—"}</td>
+            <td>${ad.phone || "—"}</td>
+          `;
+            tbody.appendChild(tr);
+          });
         }
-        ads.forEach((ad) => {
-          const card = document.createElement("div");
-          card.className = "ad-card";
-          card.style.cursor = "pointer";
-          card.onclick = () => openAdDetailModal(ad, "جزئیات آگهی بدون قیمت");
-          const priceText = ad.price_label
-            ? ad.price_label
-            : '<span class="no-price">بدون قیمت مشخص</span>';
-          card.innerHTML = `
-          <div class="ad-row"><div class="price-group"><strong>${priceText}</strong></div></div>
-          <div class="ad-details">${ad.car_name || "—"}${
-            ad.city ? " — " + ad.city : ""
-          }</div>
-          ${ad.phone ? `<div class="ad-phone">📞 ${ad.phone}</div>` : ""}
-          <div class="ad-date">${formatDate(
-            ad.telegram_date || ad.created_at
-          )}</div>
-        `;
-          list.appendChild(card);
-        });
+        renderGenericPagination(
+          "noPriceAdsPagination",
+          ads.length,
+          totalPages,
+          currentNoPriceAdsPage,
+          (p) => {
+            currentNoPriceAdsPage = p;
+            renderNoPriceAdsTable(getFilteredNoPriceAds());
+          }
+        );
       }
-      function filterNoPriceAds() {
+
+      function getFilteredNoPriceAds() {
         const q = document
           .getElementById("searchNoPriceModal")
           .value.trim()
           .toLowerCase();
-        if (!q) {
-          renderNoPriceAdsList(currentNoPriceAds);
-          return;
-        }
-        const filtered = currentNoPriceAds.filter((ad) => {
+        if (!q) return currentNoPriceAds;
+        return currentNoPriceAds.filter((ad) => {
           const haystack = [
             ad.car_name,
             ad.phone,
@@ -3013,14 +3048,20 @@
             ad.message_text,
             ad.city,
             ad.price_label,
+            ad.channel,
           ]
             .filter(Boolean)
             .join(" ")
             .toLowerCase();
           return haystack.includes(q);
         });
-        renderNoPriceAdsList(filtered);
       }
+
+      function filterNoPriceAds() {
+        currentNoPriceAdsPage = 1;
+        renderNoPriceAdsTable(getFilteredNoPriceAds());
+      }
+
       function closeNoPriceAdsModal() {
         document.getElementById("noPriceAdsModalOverlay").style.display =
           "none";
@@ -3122,6 +3163,7 @@
             ad.city,
             ad.notes,
             ad.message_text,
+            ad.channel,
           ]
             .filter(Boolean)
             .join(" ")
@@ -3231,6 +3273,7 @@
             ad.message_text,
             ad.city,
             ad.price_label,
+            ad.channel,
           ]
             .filter(Boolean)
             .join(" ")

@@ -42,6 +42,13 @@ def _display_name(car_name: str, trim: str | None) -> str:
 
 
 def _matches_search(item: dict, search_lower: str) -> bool:
+    """
+    چک می‌کند آیا هر کدام از فیلدهای مرتبط این آگهی شامل متن جستجو هست —
+    هم اسم مدل/تیپ (برای سرچ مبتنی بر مدل)، هم محتوای واقعی پیام/رنگ/تلفن/
+    توضیحات/شهر/برچسب قیمت، و هم — این مهمه — نام کانالی که آگهی از آن‌جا
+    آمده. یعنی تایپ‌کردن اسم یک کانال (کامل یا بخشی از آن) در سرچ، همان
+    مدل‌هایی را نشان می‌دهد که حداقل یک آگهی‌شان از آن کانال بوده است.
+    """
     fields = [
         item.get("car_name"),
         item.get("trim"),
@@ -51,6 +58,7 @@ def _matches_search(item: dict, search_lower: str) -> bool:
         item.get("message_text"),
         item.get("city"),
         item.get("price_label"),
+        item.get("channel"),
     ]
     haystack = " ".join(f for f in fields if f).lower()
     return search_lower in haystack
@@ -154,12 +162,6 @@ def get_ads_for_model(car_name: str, trim: str | None = None, hours: int = 24, o
 
 
 def get_ads_by_channel(channel: str, hours: int = 168) -> list[dict]:
-    """
-    همه‌ی آگهی‌های ذخیره‌شده‌ی یک کانال خاص را برمی‌گرداند (بدون توجه به
-    مدل خودرو یا صفر/کارکرده‌بودن) — برای پیدا کردن سریع پیام‌های یک کانال
-    مشخص که کاربر شک دارد شاید پردازش نشده باشند. تطبیق نام کانال
-    case-insensitive و دقیق (نه substring) است.
-    """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -275,6 +277,10 @@ def get_no_price_ads(hours: int = 168) -> list[dict]:
 
 
 def get_used_cars_report(hours: int = 24) -> list[dict]:
+    """
+    لیست خودروهای کارکرده — طبق اصلاح: مرتب‌شده بر اساس جدیدترین آگهی
+    اول (نه بر اساس اسم مدل)، مطابق با رفتار بقیه‌ی جدول‌ها.
+    """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
     conn = sqlite3.connect(DB_PATH)
@@ -288,7 +294,7 @@ def get_used_cars_report(hours: int = 24) -> list[dict]:
               AND ad_type = 'for_sale'
               AND mileage_km IS NOT NULL
               AND mileage_km > 0
-            ORDER BY car_name ASC, price_amount ASC
+            ORDER BY COALESCE(telegram_date, created_at) DESC
             """,
             (cutoff,),
         ).fetchall()
