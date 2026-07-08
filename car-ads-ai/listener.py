@@ -9,19 +9,20 @@ account_status_loop: هر چند دقیقه یک‌بار، تعداد کانا�
 اکانت الان واقعاً عضوشان است را مستقیم از تلگرام می‌خواند و در جدول
 settings ذخیره می‌کند.
 
-نکته‌ی مهم درباره‌ی لاگ‌گیری: هر پیامی که به هر دلیلی رد می‌شود، حتماً
-یک خط لاگ صریح می‌گذارد — دیگر هیچ پیامی بی‌صدا گم نمی‌شود.
-
-log_received_message: علاوه بر ذخیره‌ی آگهی‌های واقعی در car_ads، هر پیام
-دریافتی (چه آگهی چه غیرآگهی) در message_log هم ثبت می‌شود — این برای
-پاسخ‌دادن به سؤال «این کانال امروز کلاً چندتا پیام فرستاده» است، مستقل
-از این‌که چندتایش واقعاً آگهی بوده.
+نکته‌ی مهم درباره‌ی لاگ‌گیری تشخیصی (raw_events.log): این فایل جدا و
+بسیار ساده، همان اولین لحظه‌ای که Telethon یک NewMessage event دریافت
+می‌کند — قبل از هر فیلتر (is_channel، active_channels، و غیره) — یک خط
+می‌نویسد. هدف این است که مشخص شود آیا رویدادهای گم‌شده اصلاً به سطح
+Telethon/شبکه می‌رسند یا نه؛ اگر پیامی در تلگرام دیده شود ولی حتی در این
+لاگ خام هم ظاهر نشود، یعنی مشکل در لایه‌ی اتصال/شبکه است، نه در منطق
+فیلترکردن کد ما.
 """
 import os
 import sys
 import json
 import asyncio
 from datetime import datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import python_socks
@@ -63,6 +64,8 @@ ACCOUNT_USERNAME_KEY = "telegram_account_username"
 ACCOUNT_CHANNEL_COUNT_KEY = "telegram_account_channel_count"
 ACCOUNT_UPDATED_AT_KEY = "telegram_account_updated_at"
 
+RAW_EVENTS_LOG_PATH = Path(__file__).parent / "raw_events.log"
+
 INTERACTIVE_LOGIN = "--login" in sys.argv
 SYNC_EXISTING_CHANNELS_MODE = "--sync-existing-channels" in sys.argv
 
@@ -78,6 +81,20 @@ client = TelegramClient(
 
 joined_channels: set[str] = set()
 active_channels: set[str] = set()
+
+
+def log_raw_event(channel_name: str, message_id: int, has_text: bool):
+    """
+    ثبت خام و بی‌واسطه‌ی هر event ورودی — قبل از هر فیلتری. اگه پیامی توی
+    تلگرام دیده بشه ولی حتی اینجا هم ثبت نشه، یعنی مشکل کاملاً بیرون از
+    کنترل کد ماست (لایه‌ی شبکه/Telethon)، نه منطق فیلترکردن.
+    """
+    try:
+        now_iso = datetime.now(TEHRAN_TZ).isoformat()
+        with open(RAW_EVENTS_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(f"{now_iso} | channel={channel_name} | message_id={message_id} | has_text={has_text}\n")
+    except Exception:
+        pass  # این لاگ تشخیصیه، نباید هیچ‌وقت باعث توقف پردازش اصلی بشه
 
 
 def process_message(text: str, source: str):
@@ -99,6 +116,17 @@ def process_message(text: str, source: str):
 
 @client.on(events.NewMessage())
 async def live_handler(event):
+    # ---------- لاگ خام و بی‌واسطه (اولین کاری که با هر event انجام می‌شود) ----------
+    try:
+        raw_channel_name = None
+        if event.chat is not None:
+            raw_channel_name = getattr(event.chat, "username", None) or str(event.chat_id)
+        else:
+            raw_channel_name = f"unknown_chat_id_{event.chat_id}"
+        log_raw_event(raw_channel_name, event.message.id, bool(event.message.message))
+    except Exception as e:
+        print(f"⚠️ خطا در ثبت لاگ خام: {e}")
+
     if not event.is_channel:
         return
 
@@ -240,17 +268,17 @@ async def midnight_cleanup_loop():
             print("🧹 شمارنده‌ی پیام‌های امروز هم پاک شد.")
         except Exception as e:
             print(f"⚠️ خطا در پاکسازی شمارنده‌ی پیام: {e}")
+        # فایل لاگ خام هم هر شب پاک می‌شود تا حجمش نامحدود رشد نکند
+        try:
+            if RAW_EVENTS_LOG_PATH.exists():
+                RAW_EVENTS_LOG_PATH.unlink()
+            print("🧹 فایل لاگ خام (raw_events.log) هم پاک شد.")
+        except Exception as e:
+            print(f"⚠️ خطا در پاکسازی فایل لاگ خام: {e}")
         await asyncio.sleep(2)
 
 
 async def sync_existing_channels():
-    """
-    حالت اجرایی جدا (--sync-existing-channels): لیست کانال/گروه‌هایی که
-    این اکانت از قبل واقعاً در تلگرام عضوشان است را می‌خواند، با جدول
-    channels مقایسه می‌کند، و هر کدام که هنوز در دیتابیس ما نبودند را
-    اضافه می‌کند. بعد از اتمام، بدون ورود به حلقه‌ی اصلی گوش‌دادن خارج
-    می‌شود — این حالت فقط برای همگام‌سازی یک‌باره است.
-    """
     from db import add_channel, list_channels as _list_channels
 
     existing_usernames = {c["username"].lower() for c in _list_channels()}
