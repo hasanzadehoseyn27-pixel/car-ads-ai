@@ -3,6 +3,11 @@
 هر provider چندبار (retry) امتحان می‌شود قبل از رفتن به provider بعدی —
 چون شکست‌های موقت (تایم‌اوت لحظه‌ای، ۵xx گذرا) با یک تلاش دوم معمولاً حل می‌شوند.
 
+استثنا: خطای 429 (Too Many Requests) نشانه‌ی رسیدن به سقف نرخ سمت سرور است
+— نه یک شکست موقت شبکه‌ای — پس تلاش دوباره‌ی فوری روی همان provider هیچ
+فایده‌ای ندارد و فقط وقت تلف می‌کند. برای همین، به‌محض دریافت 429، بدون
+retry اضافه فوراً به provider بعدی سوییچ می‌شود.
+
 چون هر پیام تلگرام توی یک ترد جدا (run_in_executor) پردازش می‌شود، اگه چندتا
 پیام خیلی نزدیک به‌هم برسند، چندتا ترد ممکن است هم‌زمان بخواهند به همون
 provider درخواست بزنند و از سهمیه‌ی نرخش (rate limit) رد بشوند — دقیقاً
@@ -130,6 +135,17 @@ def _call_provider(provider: ProviderConfig, messages: list[dict]) -> tuple[str,
     return _call_openai_chat(provider, messages)
 
 
+def _is_rate_limit_error(exc: Exception) -> bool:
+    """
+    تشخیص می‌دهد آیا خطا از نوع 429 (Too Many Requests) است — یعنی سقف نرخ
+    سمت سرور رد شده و تلاش دوباره‌ی فوری روی همین provider بی‌فایده است.
+    """
+    status_code = getattr(getattr(exc, "response", None), "status_code", None)
+    if status_code == 429:
+        return True
+    return "429" in str(exc)
+
+
 def call_with_fallback(
     messages: list[dict],
     providers: list[ProviderConfig] | None = None,
@@ -137,7 +153,15 @@ def call_with_fallback(
 ):
     """
     روی providerها به ترتیب اولویت تلاش می‌کند؛ هر provider تا retries_per_provider
-    بار امتحان می‌شود (برای جذب شکست‌های موقت) قبل از رفتن به provider بعدی.
+    بار امتحان می‌شود (برای جذب شکست‌های موقت مثل تایم‌اوت یا خطای گذرای شبکه)
+    قبل از رفتن به provider بعدی.
+
+    استثنا: اگه خطا از نوع 429 (Too Many Requests) بود، بدون هیچ retry
+    اضافه‌ای فوراً به provider بعدی سوییچ می‌شود — چون این خطا نشانه‌ی
+    رسیدن به سقف نرخ سمت سرور است، نه یک شکست موقت، و تلاش دوباره‌ی فوری
+    فقط وقت را تلف می‌کند (این دقیقاً همان عاملی بود که باعث می‌شد کل صف
+    پردازش پیام‌ها تا ده‌ها دقیقه عقب بیفتد).
+
     خروجی: tuple (متن پاسخ خام، اسم provider موفق، اسم واقعی مدل طبق پاسخ API —
     این آخری می‌تواند None باشد اگر provider مقدارش را برنگرداند)
     """
@@ -153,10 +177,17 @@ def call_with_fallback(
                 logger.info(f"✅ provider «{provider.name}» (مدل: {model_used}) با موفقیت جواب داد")
                 return content, provider.name, model_used
             except Exception as exc:
-                logger.warning(f"⛔ provider «{provider.name}» تلاش {attempt} شکست خورد ({exc})")
                 last_error = exc
+                if _is_rate_limit_error(exc):
+                    logger.warning(f"⛔ provider «{provider.name}» با 429 (سقف نرخ) مواجه شد — بدون تلاش دوباره، سوییچ فوری به provider بعدی")
+                    break  # فوراً از حلقه‌ی retry همین provider خارج شو، برو سراغ provider بعدی
+                logger.warning(f"⛔ provider «{provider.name}» تلاش {attempt} شکست خورد ({exc})")
                 if attempt < retries_per_provider:
                     time.sleep(2)
-        logger.warning(f"⛔ provider «{provider.name}» بعد از {retries_per_provider} تلاش رد شد — سوییچ به بعدی...")
+        else:
+            # این else فقط وقتی اجرا می‌شود که حلقه‌ی for بالا بدون break کامل تمام شود
+            # (یعنی همه‌ی تلاش‌ها به‌خاطر خطاهای گذرا، نه 429، شکست خورده باشند)
+            logger.warning(f"⛔ provider «{provider.name}» بعد از {retries_per_provider} تلاش رد شد — سوییچ به بعدی...")
+            continue
 
     raise AllProvidersFailedError(f"همه‌ی providerها شکست خوردند. آخرین خطا: {last_error}")
