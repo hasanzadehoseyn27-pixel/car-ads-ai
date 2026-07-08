@@ -6,8 +6,14 @@
 
 account_status_loop: هر چند دقیقه یک‌بار، تعداد کانال/گروه‌هایی که این
 اکانت الان واقعاً عضوشان است را مستقیم از تلگرام می‌خواند و در جدول
-settings ذخیره می‌کند — تا داشبورد بتواند بدون باز‌کردن session Telethon
-جدید (که باعث قفل‌شدن session می‌شود)، این عدد را نشان دهد.
+settings ذخیره می‌کند.
+
+نکته‌ی مهم درباره‌ی لاگ‌گیری: هر پیامی که به هر دلیلی رد می‌شود (چه چون
+کانال هنوز در active_channels نیست، چه چون بدون متن است) باید حتماً یک
+خط لاگ صریح بگذارد — قبلاً بعضی رد شدن‌ها کاملاً بی‌صدا بودند (مثلاً
+پیامی که channel_name اش هنوز در active_channels نبود)، که باعث می‌شد
+اگر کانالی به‌تازگی اضافه شده بود ولی هنوز sync نشده بود، پیام‌هایش
+بدون هیچ ردی از بین بروند و عیب‌یابی غیرممکن شود.
 """
 import os
 import sys
@@ -47,7 +53,7 @@ PROXY_CONFIG = (python_socks.ProxyType.SOCKS5, PROXY_HOST, PROXY_PORT) if USE_PR
 CONNECT_TIMEOUT_SECONDS = 30
 JOIN_TIMEOUT_SECONDS = 20
 CHANNEL_SYNC_INTERVAL_SECONDS = 15
-ACCOUNT_STATUS_INTERVAL_SECONDS = 120  # هر ۲ دقیقه تعداد عضویت‌ها را از تلگرام بروزرسانی می‌کند
+ACCOUNT_STATUS_INTERVAL_SECONDS = 120
 
 ACCOUNT_USERNAME_KEY = "telegram_account_username"
 ACCOUNT_CHANNEL_COUNT_KEY = "telegram_account_channel_count"
@@ -89,6 +95,8 @@ def process_message(text: str, source: str):
 @client.on(events.NewMessage())
 async def live_handler(event):
     if not event.is_channel:
+        # پیام از یک چت خصوصی یا گروه معمولی است، نه کانال — عمداً و بی‌صدا
+        # رد می‌شود، چون این پروژه فقط کانال‌ها را دنبال می‌کند.
         return
 
     if event.chat is None:
@@ -96,7 +104,16 @@ async def live_handler(event):
         return
 
     channel_name = event.chat.username or str(event.chat_id)
+
     if channel_name not in active_channels:
+        # این لاگ عمداً صریح و همیشگی است — قبلاً این حالت کاملاً بی‌صدا رد
+        # می‌شد که باعث می‌شد پیام‌های کانال‌های تازه‌اضافه‌شده (که هنوز
+        # channel_sync_loop به‌روزشان نکرده) بدون هیچ ردی گم شوند.
+        print(
+            f"⏭️  پیام از «{channel_name}» رد شد — این کانال هنوز در لیست کانال‌های فعال "
+            f"(active_channels) نیست. اگر همین الان این کانال را اضافه کرده‌اید، تا "
+            f"{CHANNEL_SYNC_INTERVAL_SECONDS} ثانیه صبر کنید تا sync بعدی انجام شود."
+        )
         return
 
     text = event.message.message
@@ -128,6 +145,10 @@ async def live_handler(event):
                 print(f"🔔 این آگهی با {matched} قانون هشدار قیمت مطابقت داشت")
         except Exception as e:
             print(f"⚠️ خطا در بررسی هشدار قیمت: {e}")
+    elif result is not None:
+        # is_ad=false بوده — یعنی AI تشخیص داده این پیام آگهی خودرو نیست.
+        # عمداً لاگ می‌شود تا مشخص باشد پیام واقعاً پردازش شده، فقط رد شده.
+        print(f"⏭️  پیام از «{channel_name}» پردازش شد ولی is_ad=false بود — رد شد")
 
 
 async def channel_sync_loop():
@@ -135,7 +156,16 @@ async def channel_sync_loop():
     while True:
         try:
             channels = list_channels(active_only=True)
-            active_channels = {c["username"] for c in channels}
+            new_active_channels = {c["username"] for c in channels}
+
+            added = new_active_channels - active_channels
+            removed = active_channels - new_active_channels
+            if added:
+                print(f"➕ کانال‌های تازه فعال‌شده در sync این دور: {', '.join(sorted(added))}")
+            if removed:
+                print(f"➖ کانال‌های غیرفعال‌شده در sync این دور: {', '.join(sorted(removed))}")
+
+            active_channels = new_active_channels
 
             for ch in active_channels:
                 if ch in joined_channels:
@@ -147,10 +177,6 @@ async def channel_sync_loop():
                 except asyncio.TimeoutError:
                     print(f"⚠️ پیوستن به «{ch}» بیش از {JOIN_TIMEOUT_SECONDS} ثانیه طول کشید — دوباره تلاش می‌شود")
                 except Exception as e:
-                    # اگه اکانت از قبل عضو این کانال بوده (مثلاً بعد از تغییر
-                    # شماره‌ی اکانت به یک اکانت با عضویت‌های قبلی)، این خطا
-                    # (یا نوع مشابهش) می‌آید — بی‌خطر است، فقط دوباره تلاش
-                    # برای join نمی‌کنیم و به لیست joined اضافه می‌کنیم.
                     if "AlreadyParticipant" in type(e).__name__ or "already" in str(e).lower():
                         joined_channels.add(ch)
                         print(f"ℹ️ اکانت از قبل عضو «{ch}» بوده — بدون نیاز به join مجدد ادامه می‌دهیم")
@@ -163,12 +189,6 @@ async def channel_sync_loop():
 
 
 async def account_status_loop():
-    """
-    هر ACCOUNT_STATUS_INTERVAL_SECONDS ثانیه، از خود تلگرام (نه از دیتابیس
-    ما) تعداد واقعی کانال/گروه‌هایی که این اکانت عضوشان است را می‌خواند —
-    این عدد مستقل از جدول channels ماست و شامل هر عضویتی می‌شود که این
-    اکانت به هر شکلی (حتی قبل از استفاده در این پروژه) داشته باشد.
-    """
     while True:
         try:
             me = await client.get_me()
