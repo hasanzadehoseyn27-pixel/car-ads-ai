@@ -11,7 +11,6 @@ import re
 import requests
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
-from backfill import check_channel_status, run_backfill_for_channel, is_backfill_running
 
 from analytics import (
     get_price_analytics,
@@ -44,6 +43,7 @@ from db import (
     get_message_counts_per_channel,
 )
 from channel_extractor import extract_channels_from_group, rescan_monitored_group_now, daily_scan_loop
+from backfill import check_channel_status, start_backfill_job, get_job_progress, is_backfill_running
 
 app = FastAPI(title="car-ads-ai analytics API")
 
@@ -86,6 +86,10 @@ class PriceAlertIn(BaseModel):
         if not self.car_name or not self.car_name.strip():
             raise ValueError("نام مدل خودرو نمی‌تواند خالی باشد")
         return self
+
+
+class BackfillChannelIn(BaseModel):
+    channel: str
 
 
 @app.on_event("startup")
@@ -358,8 +362,6 @@ def get_alert_matches(unseen_only: bool = Query(False)):
 def mark_alert_matches_seen():
     mark_all_alert_matches_seen()
     return {"status": "ok"}
-class BackfillChannelIn(BaseModel):
-    channel: str
 
 
 @app.get("/backfill/lock-status")
@@ -382,13 +384,21 @@ async def backfill_channel_status(channel: str = Query(...)):
 
 
 @app.post("/backfill/start")
-async def backfill_start(payload: BackfillChannelIn):
+def backfill_start(payload: BackfillChannelIn):
+    """
+    فوراً برمی‌گردد — عملیات واقعی در پس‌زمینه اجرا می‌شود. فرانت باید
+    با job_id برگشتی، /backfill/progress را poll کند.
+    """
     try:
-        result = await run_backfill_for_channel(payload.channel)
-        return result
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        job_id = start_backfill_job(payload.channel)
+        return {"job_id": job_id}
     except RuntimeError as e:
         raise HTTPException(status_code=409, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"خطای غیرمنتظره: {e}")
+
+
+@app.get("/backfill/progress")
+def backfill_progress(job_id: str = Query(...)):
+    job = get_job_progress(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="این job پیدا نشد")
+    return job

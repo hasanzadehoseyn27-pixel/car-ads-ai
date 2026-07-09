@@ -181,16 +181,6 @@
         background: #3f2d0f;
         color: #fdba74;
         border: 1px solid #7c2d12;
-        animation: pulse-bg 1.6s infinite;
-      }
-      @keyframes pulse-bg {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.7;
-        }
       }
 
       .channels-table-wrap {
@@ -199,7 +189,7 @@
       table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 760px;
+        min-width: 780px;
       }
       th,
       td {
@@ -254,6 +244,23 @@
         text-align: center;
         padding: 30px 0;
         font-size: 13px;
+      }
+
+      .progress-bar-wrap {
+        width: 140px;
+        height: 8px;
+        background: var(--bg);
+        border: 1px solid var(--card-border);
+        border-radius: 999px;
+        overflow: hidden;
+        display: inline-block;
+        vertical-align: middle;
+        margin-inline-end: 8px;
+      }
+      .progress-bar-fill {
+        height: 100%;
+        background: var(--accent);
+        transition: width 0.3s ease-out;
       }
       .spinner-inline {
         width: 13px;
@@ -379,6 +386,9 @@
           padding: 8px 10px;
           font-size: 12px;
         }
+        .progress-bar-wrap {
+          width: 90px;
+        }
       }
     </style>
   </head>
@@ -466,8 +476,10 @@
     </div>
 
     <script>
+      const PROGRESS_POLL_MS = 2000;
+
       let allChannels = [];
-      let channelStatusCache = {}; // username -> {existing_ads_count, total_messages_today, text_messages_today}
+      let channelStatusCache = {};
       let lockPollTimer = null;
       let runAllActive = false;
       let runAllStopRequested = false;
@@ -528,19 +540,7 @@
           let statusHtml =
             '<span style="color: var(--text-faint);">هنوز بررسی نشده</span>';
           if (statusCache) {
-            statusHtml = `
-            <span class="status-cell">
-              ذخیره‌شده: <span class="num">${statusCache.existing_ads_count.toLocaleString(
-                "fa-IR"
-              )}</span>
-              — کل پیام امروز: <span class="num">${statusCache.total_messages_today.toLocaleString(
-                "fa-IR"
-              )}</span>
-              (متنی: <span class="num">${statusCache.text_messages_today.toLocaleString(
-                "fa-IR"
-              )}</span>)
-            </span>
-          `;
+            statusHtml = renderStatusHtml(statusCache);
           }
 
           tr.innerHTML = `
@@ -564,6 +564,22 @@
         });
       }
 
+      function renderStatusHtml(statusCache) {
+        return `
+        <span class="status-cell">
+          ذخیره‌شده: <span class="num">${statusCache.existing_ads_count.toLocaleString(
+            "fa-IR"
+          )}</span>
+          — کل پیام امروز: <span class="num">${statusCache.total_messages_today.toLocaleString(
+            "fa-IR"
+          )}</span>
+          (متنی: <span class="num">${statusCache.text_messages_today.toLocaleString(
+            "fa-IR"
+          )}</span>)
+        </span>
+      `;
+      }
+
       async function checkStatus(channel) {
         const statusCell = document.getElementById(`status-${channel}`);
         statusCell.innerHTML =
@@ -580,19 +596,7 @@
             return;
           }
           channelStatusCache[channel] = json;
-          statusCell.innerHTML = `
-          <span class="status-cell">
-            ذخیره‌شده: <span class="num">${json.existing_ads_count.toLocaleString(
-              "fa-IR"
-            )}</span>
-            — کل پیام امروز: <span class="num">${json.total_messages_today.toLocaleString(
-              "fa-IR"
-            )}</span>
-            (متنی: <span class="num">${json.text_messages_today.toLocaleString(
-              "fa-IR"
-            )}</span>)
-          </span>
-        `;
+          statusCell.innerHTML = renderStatusHtml(json);
         } catch (err) {
           statusCell.innerHTML = `<span style="color: var(--danger);">❌ خطا: ${err.message}</span>`;
         }
@@ -613,7 +617,7 @@
           if (json.running) {
             banner.className = "status-banner running";
             banner.innerHTML = `<span class="spinner-inline"></span> در حال ترمیم کانال «@${json.channel}» — لطفاً صبر کن...`;
-            setAllButtonsDisabled(true);
+            if (!runAllActive) setAllButtonsDisabled(true);
           } else {
             banner.className = "status-banner idle";
             banner.textContent = "✅ هیچ عملیات ترمیمی در حال اجرا نیست";
@@ -628,87 +632,166 @@
         lockPollTimer = setInterval(pollLockStatus, 3000);
       }
 
-      async function startBackfill(channel) {
-        setAllButtonsDisabled(true);
-        const statusCell = document.getElementById(`status-${channel}`);
-        const originalStatusHtml = statusCell.innerHTML;
-        statusCell.innerHTML =
-          '<span class="spinner-inline"></span> در حال ترمیم...';
+      /**
+       * شروع ترمیم یک کانال + polling زنده‌ی پیشرفت.
+       * silent=true یعنی مودال نتیجه در پایان باز نمی‌شود (برای run-all خودکار).
+       * خروجی Promise که وقتی job واقعاً تمام شد resolve می‌شود.
+       */
+      function runBackfillWithProgress(channel, silent) {
+        return new Promise(async (resolve) => {
+          const statusCell = document.getElementById(`status-${channel}`);
+          const row = document.getElementById(`channel-row-${channel}`);
+          if (row) row.classList.add("active-row");
 
-        const row = document.getElementById(`channel-row-${channel}`);
-        if (row) row.classList.add("active-row");
+          try {
+            const startRes = await fetch("/api/car-ads-backfill-start", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ channel }),
+            });
+            const startJson = await startRes.json();
 
-        try {
-          const res = await fetch("/api/car-ads-backfill-start", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ channel }),
-          });
-          const json = await res.json();
+            if (startJson.error) {
+              if (statusCell)
+                statusCell.innerHTML = `<span style="color: var(--danger);">❌ ${startJson.error}</span>`;
+              if (row) row.classList.remove("active-row");
+              resolve({ success: false, error: startJson.error });
+              return;
+            }
 
-          if (row) row.classList.remove("active-row");
+            const jobId = startJson.job_id;
 
-          if (json.error) {
-            statusCell.innerHTML = `<span style="color: var(--danger);">❌ ${json.error}</span>`;
-            setAllButtonsDisabled(false);
-            return { success: false, error: json.error };
+            const poll = async () => {
+              try {
+                const res = await fetch(
+                  `/api/car-ads-backfill-progress?job_id=${encodeURIComponent(
+                    jobId
+                  )}`
+                );
+                const job = await res.json();
+
+                if (job.error) {
+                  if (statusCell)
+                    statusCell.innerHTML = `<span style="color: var(--danger);">❌ ${job.error}</span>`;
+                  if (row) row.classList.remove("active-row");
+                  resolve({ success: false, error: job.error });
+                  return;
+                }
+
+                if (job.status === "starting" || job.status === "scanning") {
+                  if (statusCell) {
+                    statusCell.innerHTML = `<span class="spinner-inline"></span> در حال اسکن پیام‌های کانال از تلگرام...`;
+                  }
+                  setTimeout(poll, PROGRESS_POLL_MS);
+                  return;
+                }
+
+                if (job.status === "processing") {
+                  const total = job.total || 0;
+                  const processed = job.processed || 0;
+                  const pct =
+                    total > 0 ? Math.round((processed / total) * 100) : 0;
+                  if (statusCell) {
+                    statusCell.innerHTML = `
+                    <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width: ${pct}%;"></div></div>
+                    <span class="status-cell">پیام ${processed.toLocaleString(
+                      "fa-IR"
+                    )} از ${total.toLocaleString(
+                      "fa-IR"
+                    )} — تازه‌پیداشده: <span class="num">${job.added_count.toLocaleString(
+                      "fa-IR"
+                    )}</span></span>
+                  `;
+                  }
+                  setTimeout(poll, PROGRESS_POLL_MS);
+                  return;
+                }
+
+                if (job.status === "done") {
+                  if (statusCell) {
+                    statusCell.innerHTML = `
+                    <span class="status-cell">
+                      ذخیره‌شده: <span class="num">${job.total_ads_now.toLocaleString(
+                        "fa-IR"
+                      )}</span>
+                      — کل پیام امروز: <span class="num">${job.total_messages_today.toLocaleString(
+                        "fa-IR"
+                      )}</span>
+                      — <span style="color:#6ee7b7;">تازه‌پیداشده: ${job.added_count.toLocaleString(
+                        "fa-IR"
+                      )}</span>
+                    </span>
+                  `;
+                  }
+                  channelStatusCache[channel] = {
+                    existing_ads_count: job.total_ads_now,
+                    total_messages_today: job.total_messages_today,
+                    text_messages_today:
+                      channelStatusCache[channel]?.text_messages_today ??
+                      job.total_messages_today,
+                  };
+                  if (row) row.classList.remove("active-row");
+                  if (!silent) showResultModal(channel, job);
+                  resolve({ success: true, added_count: job.added_count });
+                  return;
+                }
+
+                if (job.status === "error") {
+                  if (statusCell)
+                    statusCell.innerHTML = `<span style="color: var(--danger);">❌ ${job.error}</span>`;
+                  if (row) row.classList.remove("active-row");
+                  resolve({ success: false, error: job.error });
+                  return;
+                }
+
+                setTimeout(poll, PROGRESS_POLL_MS);
+              } catch (err) {
+                if (statusCell)
+                  statusCell.innerHTML = `<span style="color: var(--danger);">❌ خطا: ${err.message}</span>`;
+                if (row) row.classList.remove("active-row");
+                resolve({ success: false, error: err.message });
+              }
+            };
+
+            poll();
+          } catch (err) {
+            if (statusCell)
+              statusCell.innerHTML = `<span style="color: var(--danger);">❌ خطا: ${err.message}</span>`;
+            if (row) row.classList.remove("active-row");
+            resolve({ success: false, error: err.message });
           }
-
-          statusCell.innerHTML = `
-          <span class="status-cell">
-            ذخیره‌شده: <span class="num">${json.total_ads_now.toLocaleString(
-              "fa-IR"
-            )}</span>
-            — کل پیام امروز: <span class="num">${json.total_messages_today.toLocaleString(
-              "fa-IR"
-            )}</span>
-            — <span style="color:#6ee7b7;">تازه‌پیداشده: ${json.added_count.toLocaleString(
-              "fa-IR"
-            )}</span>
-          </span>
-        `;
-          channelStatusCache[channel] = {
-            existing_ads_count: json.total_ads_now,
-            total_messages_today: json.total_messages_today,
-            text_messages_today:
-              channelStatusCache[channel]?.text_messages_today ||
-              json.total_messages_today,
-          };
-
-          showResultModal(channel, json);
-          setAllButtonsDisabled(false);
-          return { success: true, added_count: json.added_count };
-        } catch (err) {
-          if (row) row.classList.remove("active-row");
-          statusCell.innerHTML = `<span style="color: var(--danger);">❌ خطا: ${err.message}</span>`;
-          setAllButtonsDisabled(false);
-          return { success: false, error: err.message };
-        }
+        });
       }
 
-      function showResultModal(channel, result) {
+      async function startBackfill(channel) {
+        setAllButtonsDisabled(true);
+        await runBackfillWithProgress(channel, false);
+        if (!runAllActive) setAllButtonsDisabled(false);
+      }
+
+      function showResultModal(channel, job) {
         document.getElementById(
           "resultModalTitle"
         ).textContent = `نتیجه‌ی ترمیم — @${channel}`;
         document.getElementById("resultSummary").innerHTML = `
-        <span>آگهی‌های تازه‌پیداشده: <span class="stat-value">${result.added_count.toLocaleString(
+        <span>آگهی‌های تازه‌پیداشده: <span class="stat-value">${job.added_count.toLocaleString(
           "fa-IR"
         )}</span></span>
-        <span>تعداد کل آگهی ذخیره‌شده الان: <span class="stat-value">${result.total_ads_now.toLocaleString(
+        <span>تعداد کل آگهی ذخیره‌شده الان: <span class="stat-value">${job.total_ads_now.toLocaleString(
           "fa-IR"
         )}</span></span>
-        <span>تعداد کل پیام‌های کانال امروز: <span class="stat-value">${result.total_messages_today.toLocaleString(
+        <span>تعداد کل پیام‌های کانال امروز: <span class="stat-value">${job.total_messages_today.toLocaleString(
           "fa-IR"
         )}</span></span>
       `;
 
         const list = document.getElementById("resultAdsList");
         list.innerHTML = "";
-        if (!result.added_ads || result.added_ads.length === 0) {
+        if (!job.added_ads || job.added_ads.length === 0) {
           list.innerHTML =
             '<div class="empty">هیچ آگهی جدیدی پیدا نشد — همه‌ی پیام‌های امروز از قبل بررسی شده بودند</div>';
         } else {
-          result.added_ads.forEach((ad) => {
+          job.added_ads.forEach((ad) => {
             const card = document.createElement("div");
             card.className = "found-ad-card";
             card.innerHTML = `
@@ -753,10 +836,9 @@
             channelsToProcess.length
           }: @${ch.username}`;
 
-          // چون setAllButtonsDisabled(true) دکمه‌ها را غیرفعال کرده، مستقیم منطق داخلی startBackfill را صدا می‌زنیم
-          await startBackfillSilent(ch.username);
+          await runBackfillWithProgress(ch.username, true);
 
-          if (i < channelsToProcess.length - 1) {
+          if (i < channelsToProcess.length - 1 && !runAllStopRequested) {
             await new Promise((resolve) => setTimeout(resolve, 1500));
           }
         }
@@ -769,55 +851,6 @@
         document.getElementById("runAllBtn").style.display = "inline-block";
         document.getElementById("stopRunAllBtn").style.display = "none";
         setAllButtonsDisabled(false);
-      }
-
-      async function startBackfillSilent(channel) {
-        // مثل startBackfill ولی بدون باز کردن مودال نتیجه برای هر کانال (برای جلوگیری از انبوه مودال در run-all)
-        const statusCell = document.getElementById(`status-${channel}`);
-        if (!statusCell) return;
-        statusCell.innerHTML =
-          '<span class="spinner-inline"></span> در حال ترمیم...';
-        const row = document.getElementById(`channel-row-${channel}`);
-        if (row) row.classList.add("active-row");
-
-        try {
-          const res = await fetch("/api/car-ads-backfill-start", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ channel }),
-          });
-          const json = await res.json();
-          if (row) row.classList.remove("active-row");
-
-          if (json.error) {
-            statusCell.innerHTML = `<span style="color: var(--danger);">❌ ${json.error}</span>`;
-            return;
-          }
-
-          statusCell.innerHTML = `
-          <span class="status-cell">
-            ذخیره‌شده: <span class="num">${json.total_ads_now.toLocaleString(
-              "fa-IR"
-            )}</span>
-            — کل پیام امروز: <span class="num">${json.total_messages_today.toLocaleString(
-              "fa-IR"
-            )}</span>
-            — <span style="color:#6ee7b7;">تازه‌پیداشده: ${json.added_count.toLocaleString(
-              "fa-IR"
-            )}</span>
-          </span>
-        `;
-          channelStatusCache[channel] = {
-            existing_ads_count: json.total_ads_now,
-            total_messages_today: json.total_messages_today,
-            text_messages_today:
-              channelStatusCache[channel]?.text_messages_today ||
-              json.total_messages_today,
-          };
-        } catch (err) {
-          if (row) row.classList.remove("active-row");
-          statusCell.innerHTML = `<span style="color: var(--danger);">❌ خطا: ${err.message}</span>`;
-        }
       }
 
       function stopRunAll() {

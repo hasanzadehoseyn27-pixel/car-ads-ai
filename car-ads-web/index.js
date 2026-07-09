@@ -622,6 +622,30 @@ fastify.post("/api/car-ads-backfill-start", async (req, reply) => {
   }
 });
 
+fastify.get("/api/car-ads-backfill-progress", async (req, reply) => {
+  const jobId = req.query.job_id;
+  if (!jobId) {
+    reply.code(400);
+    return { error: "پارامتر job_id الزامی است" };
+  }
+  try {
+    const res = await fetch(
+      `${ANALYTICS_SERVICE_URL}/backfill/progress?job_id=${encodeURIComponent(
+        jobId
+      )}`
+    );
+    const json = await res.json();
+    if (!res.ok) {
+      reply.code(res.status);
+      return { error: json.detail || "سرویس car-ads-ai پاسخ درستی نداد" };
+    }
+    return json;
+  } catch (err) {
+    reply.code(502);
+    return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+  }
+});
+
 fastify.listen({ port: 3050, host: "0.0.0.0" }, (err) => {
   if (err) throw err;
   console.log("car-ads-web backend running on http://localhost:3050");

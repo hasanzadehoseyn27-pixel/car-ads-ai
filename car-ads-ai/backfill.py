@@ -5,27 +5,23 @@ backfill.py — ابزار دستی «ترمیم/بک‌فیل»: برای یک 
 می‌کند.
 
 کاملاً مستقل از listener.py و channel_sync_loop است — از یک session کاملاً
-جدا (backfill_session) استفاده می‌کند تا هیچ تداخلی با session اصلی
-(car_ads_session) یا session استخراج گروه (channel_extractor_session)
-پیش نیاید.
+جدا (backfill_session) استفاده می‌کند.
+
+نکته‌ی مهم درباره‌ی معماری job-based: چون عملیات ترمیم می‌تواند چند دقیقه
+طول بکشد (رعایت rate limit بین هر تماس AI)، اجرای مستقیم و مسدودکننده در
+یک HTTP request باعث timeout می‌شود. برای همین، عملیات در پس‌زمینه
+(asyncio.create_task) اجرا می‌شود و پیشرفتش در یک دیکشنری در-حافظه
+(_jobs) ثبت می‌شود؛ فرانت‌اند با یک job_id، هر چند ثانیه وضعیت را
+poll می‌کند.
 
 قبل از اولین استفاده، یک‌بار باید دستی لاگین شود:
     py backfill.py --login
-
-نکته‌ی مهم درباره‌ی دیداپ: چون فقط پیام‌های تشخیص‌داده‌شده به‌عنوان آگهی
-واقعی (is_ad=true) در car_ads ذخیره می‌شوند، پیام‌هایی که قبلاً بررسی شده
-ولی is_ad=false بوده‌اند، دوباره به AI فرستاده می‌شوند (چون نمی‌دانیم
-قبلاً بررسی شده‌اند یا نه) — این یک هزینه‌ی قابل‌قبول برای سادگی ابزار
-است، نه یک باگ.
-
-قفل هم‌زمانی: چون این ابزار و api.py در یک پروسه‌ی مشترک (uvicorn) اجرا
-می‌شوند، یک متغیر ساده‌ی در-حافظه (نه جدول دیتابیس) کافی است تا مطمئن شویم
-فقط یک عملیات ترمیم در هر لحظه در حال اجراست.
 """
 import os
 import sys
+import uuid
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 import python_socks
@@ -54,17 +50,22 @@ PROXY_CONFIG = (python_socks.ProxyType.SOCKS5, PROXY_HOST, PROXY_PORT) if USE_PR
 
 CONNECT_TIMEOUT_SECONDS = 30
 JOIN_TIMEOUT_SECONDS = 20
-MAX_MESSAGES_TO_SCAN = 3000  # سقف ایمنی برای یک روز، حتی برای پرترافیک‌ترین کانال‌ها کافی است
+MAX_MESSAGES_TO_SCAN = 3000
 
 SESSION_NAME = "backfill_session"
 
-# ---------- قفل هم‌زمانی ساده و در-حافظه ----------
+# ---------- قفل هم‌زمانی + وضعیت job ها (در-حافظه) ----------
 _backfill_running = False
 _backfill_current_channel: str | None = None
+_jobs: dict[str, dict] = {}  # job_id -> {status, channel, processed, total, added_count, added_ads, error, ...}
 
 
 def is_backfill_running() -> dict:
     return {"running": _backfill_running, "channel": _backfill_current_channel}
+
+
+def get_job_progress(job_id: str) -> dict | None:
+    return _jobs.get(job_id)
 
 
 def _build_client() -> TelegramClient:
@@ -103,9 +104,7 @@ def _midnight_tehran_utc_iso() -> str:
 
 async def check_channel_status(channel_username: str) -> dict:
     """
-    وضعیت لحظه‌ای یک کانال — بدون فرستادن چیزی به AI، فقط شمارش:
-    ۱) چند آگهی واقعی از این کانال از نیمه‌شب تهران تا الان در دیتابیس هست.
-    ۲) چند پیام کل (متنی) امروز این کانال در تلگرام پست شده.
+    وضعیت لحظه‌ای یک کانال — بدون فرستادن چیزی به AI، فقط شمارش سریع.
     """
     since_iso = _midnight_tehran_utc_iso()
     existing_ads_count = count_ads_for_channel_since(channel_username, since_iso)
@@ -117,7 +116,6 @@ async def check_channel_status(channel_username: str) -> dict:
         except Exception as e:
             raise ValueError(f"دسترسی به کانال «{channel_username}» ممکن نشد: {e}")
 
-        cutoff = datetime.now(timezone.utc) - (datetime.now(timezone.utc) - datetime.fromisoformat(since_iso))
         cutoff = datetime.fromisoformat(since_iso)
 
         total_messages_today = 0
@@ -139,12 +137,11 @@ async def check_channel_status(channel_username: str) -> dict:
         await client.disconnect()
 
 
-async def run_backfill_for_channel(channel_username: str) -> dict:
+def start_backfill_job(channel_username: str) -> str:
     """
-    عملیات اصلی ترمیم: پیام‌های امروز این کانال را می‌خواند، پیام‌هایی که
-    message_id شان هنوز در car_ads نیست را به AI می‌فرستد، و آگهی‌های
-    واقعی جدید را ذخیره می‌کند. نتیجه شامل لیست آگهی‌های تازه‌پیداشده،
-    مرتب‌شده از قدیمی‌ترین به جدیدترین (بر اساس زمان پست در تلگرام) است.
+    یک job جدید می‌سازد و اجرای واقعی را در پس‌زمینه شروع می‌کند.
+    فوراً یک job_id برمی‌گرداند — بدون منتظرماندن برای اتمام کار.
+    خروجی: job_id، یا در صورت اشغال‌بودن قفل، RuntimeError.
     """
     global _backfill_running, _backfill_current_channel
 
@@ -154,13 +151,37 @@ async def run_backfill_for_channel(channel_username: str) -> dict:
             "لطفاً صبر کن تا تمام شود."
         )
 
+    job_id = uuid.uuid4().hex
+    _jobs[job_id] = {
+        "status": "starting",  # starting | scanning | processing | done | error
+        "channel": channel_username,
+        "processed": 0,
+        "total": 0,
+        "added_count": 0,
+        "added_ads": [],
+        "total_ads_now": None,
+        "total_messages_today": None,
+        "error": None,
+    }
+
     _backfill_running = True
     _backfill_current_channel = channel_username
+
+    asyncio.create_task(_run_backfill_job(job_id, channel_username))
+    return job_id
+
+
+async def _run_backfill_job(job_id: str, channel_username: str) -> None:
+    """اجرای واقعی — در پس‌زمینه، بدون بلاک‌کردن هیچ HTTP request ای."""
+    global _backfill_running, _backfill_current_channel
+    job = _jobs[job_id]
 
     try:
         since_iso = _midnight_tehran_utc_iso()
         cutoff = datetime.fromisoformat(since_iso)
         existing_ids = get_existing_message_ids_for_channel(channel_username, since_iso)
+
+        job["status"] = "scanning"
 
         client = await _connect_authorized_client()
         try:
@@ -172,9 +193,8 @@ async def run_backfill_for_channel(channel_username: str) -> dict:
             try:
                 await asyncio.wait_for(client(JoinChannelRequest(entity)), timeout=JOIN_TIMEOUT_SECONDS)
             except Exception:
-                pass  # اگه از قبل عضو بودیم یا نیاز به join نبود، بی‌خطر است
+                pass
 
-            # جمع‌آوری پیام‌های امروز (جدیدترین به قدیمی‌ترین)، بعد در پایان معکوس می‌شود
             candidate_messages = []
             total_messages_today = 0
             async for message in client.iter_messages(entity, limit=MAX_MESSAGES_TO_SCAN):
@@ -189,8 +209,12 @@ async def run_backfill_for_channel(channel_username: str) -> dict:
 
             candidate_messages.reverse()  # قدیمی‌ترین به جدیدترین
 
+            job["total"] = len(candidate_messages)
+            job["total_messages_today"] = total_messages_today
+            job["status"] = "processing"
+
             added_ads = []
-            for message in candidate_messages:
+            for idx, message in enumerate(candidate_messages):
                 text = message.message
                 telegram_date = message.date.astimezone(TEHRAN_TZ).isoformat()
 
@@ -198,7 +222,7 @@ async def run_backfill_for_channel(channel_username: str) -> dict:
                     result = extract_car_ad(text)
                 except Exception as e:
                     print(f"⚠️ خطا در استخراج پیام {message.id} از «{channel_username}»: {e}")
-                    continue
+                    result = None
 
                 if result and result.get("is_ad"):
                     save_ad(
@@ -216,17 +240,18 @@ async def run_backfill_for_channel(channel_username: str) -> dict:
                         "telegram_link": f"https://t.me/{channel_username}/{message.id}",
                     })
 
-            total_ads_now = count_ads_for_channel_since(channel_username, since_iso)
+                job["processed"] = idx + 1
+                job["added_count"] = len(added_ads)
+                job["added_ads"] = added_ads
 
-            return {
-                "channel": channel_username,
-                "added_count": len(added_ads),
-                "added_ads": added_ads,
-                "total_ads_now": total_ads_now,
-                "total_messages_today": total_messages_today,
-            }
+            total_ads_now = count_ads_for_channel_since(channel_username, since_iso)
+            job["total_ads_now"] = total_ads_now
+            job["status"] = "done"
         finally:
             await client.disconnect()
+    except Exception as e:
+        job["status"] = "error"
+        job["error"] = str(e)
     finally:
         _backfill_running = False
         _backfill_current_channel = None
