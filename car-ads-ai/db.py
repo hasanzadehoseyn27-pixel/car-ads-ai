@@ -9,11 +9,12 @@
 جدول archived_ads: آرشیو «دیروز» — قبل از پاکسازی نیمه‌شب پر می‌شود.
 جدول monitored_groups / channel_extraction_log: استخراج خودکار روزانه‌ی کانال از گروه.
 جدول extraction_progress: وضعیت لحظه‌ای یک اجرای در حال انجام استخراج.
+جدول message_log: شمارنده‌ی همه‌ی پیام‌های دریافتی (چه آگهی چه غیرآگهی).
 
-جدول message_log: هر پیامی که از یک کانال فعال دریافت و توسط AI پردازش
-می‌شود، اینجا ثبت می‌شود — چه آگهی تشخیص داده شود چه نه. هدفش صرفاً
-آمارگیری («این کانال امروز کلاً چندتا پیام فرستاده») است، نه ذخیره‌ی
-محتوای آگهی — آن کار برعهده‌ی car_ads است.
+توابع get_existing_message_ids_for_channel و count_ads_for_channel_since
+در انتهای فایل، مخصوص ابزار «ترمیم/بک‌فیل» (backfill.py) هستند — برای
+تشخیص اینکه کدام پیام‌های یک کانال قبلاً به‌عنوان آگهی ذخیره شده‌اند و
+کدام هنوز بررسی نشده‌اند.
 
 نکته‌ی مهم درباره‌ی هم‌زمانی: این فایل هم‌زمان توسط چند پروسه نوشته
 می‌شود؛ همه‌ی اتصال‌ها از تابع _connect() عبور می‌کنند که WAL mode و
@@ -558,9 +559,7 @@ def clear_extraction_progress(run_id: str) -> None:
 def log_received_message(channel: str, is_ad: bool) -> None:
     """
     هر پیامی که از یک کانال فعال دریافت و توسط AI پردازش می‌شود، اینجا
-    ثبت می‌شود — چه آگهی تشخیص داده شود چه نه. این جدول جدا از car_ads
-    است و هدفش صرفاً آمارگیری («این کانال امروز کلاً چندتا پیام فرستاده»)
-    است، نه ذخیره‌ی محتوای آگهی.
+    ثبت می‌شود — چه آگهی تشخیص داده شود چه نه.
     """
     conn = _connect()
     try:
@@ -576,8 +575,7 @@ def log_received_message(channel: str, is_ad: bool) -> None:
 def get_message_counts_per_channel() -> list[dict]:
     """
     برای هر کانال، تعداد کل پیام‌های دریافتی امروز (چه آگهی چه غیرآگهی) و
-    تعداد آن‌هایی که واقعاً آگهی تشخیص داده شده‌اند را برمی‌گرداند —
-    مرتب‌شده بر اساس تعداد کل، نزولی.
+    تعداد آن‌هایی که واقعاً آگهی تشخیص داده شده‌اند را برمی‌گرداند.
     """
     conn = _connect()
     conn.row_factory = sqlite3.Row
@@ -599,10 +597,44 @@ def get_message_counts_per_channel() -> list[dict]:
 
 
 def clear_message_log() -> None:
-    """پاکسازی جدول message_log — برای اجرا در کنار پاکسازی نیمه‌شب، تا هر روز از صفر شروع شود."""
+    """پاکسازی جدول message_log — برای اجرا در کنار پاکسازی نیمه‌شب."""
     conn = _connect()
     try:
         conn.execute("DELETE FROM message_log")
         conn.commit()
     finally:
         conn.close()
+
+
+def get_existing_message_ids_for_channel(channel: str, since_iso: str) -> set[int]:
+    """
+    مجموعه‌ی message_id هایی که از این کانال، از since_iso به بعد، از قبل
+    توی car_ads ذخیره شده‌اند — برای ابزار «ترمیم/بک‌فیل» استفاده می‌شود تا
+    پیام‌هایی که قبلاً بررسی و به‌عنوان آگهی واقعی ذخیره شده‌اند، دوباره به
+    AI فرستاده نشوند. توجه: پیام‌هایی که قبلاً بررسی شده ولی is_ad=false
+    بوده‌اند، چون در car_ads ذخیره نمی‌شوند، در این مجموعه نیستند — یعنی
+    ابزار ترمیم ممکن است بعضی پیام‌های غیرآگهی را دوباره چک کند؛ این یک
+    هزینه‌ی قابل‌قبول است، نه یک باگ.
+    """
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT message_id FROM car_ads WHERE channel = ? COLLATE NOCASE AND COALESCE(telegram_date, created_at) >= ?",
+            (channel, since_iso),
+        ).fetchall()
+    finally:
+        conn.close()
+    return {row[0] for row in rows}
+
+
+def count_ads_for_channel_since(channel: str, since_iso: str) -> int:
+    """تعداد آگهی‌های واقعی ذخیره‌شده‌ی این کانال از since_iso به بعد."""
+    conn = _connect()
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM car_ads WHERE channel = ? COLLATE NOCASE AND COALESCE(telegram_date, created_at) >= ?",
+            (channel, since_iso),
+        ).fetchone()
+    finally:
+        conn.close()
+    return row[0] if row else 0

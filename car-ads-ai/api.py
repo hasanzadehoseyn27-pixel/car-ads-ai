@@ -11,6 +11,7 @@ import re
 import requests
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
+from backfill import check_channel_status, run_backfill_for_channel, is_backfill_running
 
 from analytics import (
     get_price_analytics,
@@ -357,3 +358,37 @@ def get_alert_matches(unseen_only: bool = Query(False)):
 def mark_alert_matches_seen():
     mark_all_alert_matches_seen()
     return {"status": "ok"}
+class BackfillChannelIn(BaseModel):
+    channel: str
+
+
+@app.get("/backfill/lock-status")
+def backfill_lock_status():
+    """آیا الان یک عملیات ترمیم در حال اجراست — برای غیرفعال‌کردن دکمه‌های دیگر در فرانت."""
+    return is_backfill_running()
+
+
+@app.get("/backfill/channel-status")
+async def backfill_channel_status(channel: str = Query(...)):
+    try:
+        result = await check_channel_status(channel)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"خطای غیرمنتظره: {e}")
+
+
+@app.post("/backfill/start")
+async def backfill_start(payload: BackfillChannelIn):
+    try:
+        result = await run_backfill_for_channel(payload.channel)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"خطای غیرمنتظره: {e}")
