@@ -11,10 +11,10 @@
 جدول extraction_progress: وضعیت لحظه‌ای یک اجرای در حال انجام استخراج.
 جدول message_log: شمارنده‌ی همه‌ی پیام‌های دریافتی (چه آگهی چه غیرآگهی).
 
-توابع get_existing_message_ids_for_channel و count_ads_for_channel_since
-در انتهای فایل، مخصوص ابزار «ترمیم/بک‌فیل» (backfill.py) هستند — برای
-تشخیص اینکه کدام پیام‌های یک کانال قبلاً به‌عنوان آگهی ذخیره شده‌اند و
-کدام هنوز بررسی نشده‌اند.
+جدول channel_backfill_status: آخرین وضعیت ذخیره‌شده‌ی هر کانال برای ابزار
+ترمیم/بک‌فیل (backfill.py) — تا با رفرش صفحه‌ی backfill.html، داده‌های
+«بررسی وضعیت» یا نتیجه‌ی آخرین ترمیم از بین نروند و همیشه از دیتابیس
+خوانده شوند (نه فقط از حافظه‌ی مرورگر).
 
 نکته‌ی مهم درباره‌ی هم‌زمانی: این فایل هم‌زمان توسط چند پروسه نوشته
 می‌شود؛ همه‌ی اتصال‌ها از تابع _connect() عبور می‌کنند که WAL mode و
@@ -166,6 +166,15 @@ def init_db():
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_message_log_channel
         ON message_log(channel)
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS channel_backfill_status (
+            channel TEXT PRIMARY KEY,
+            existing_ads_count INTEGER NOT NULL,
+            total_messages_today INTEGER NOT NULL,
+            text_messages_today INTEGER NOT NULL,
+            checked_at TEXT NOT NULL
+        )
     """)
 
     existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(car_ads)").fetchall()}
@@ -557,10 +566,6 @@ def clear_extraction_progress(run_id: str) -> None:
 
 
 def log_received_message(channel: str, is_ad: bool) -> None:
-    """
-    هر پیامی که از یک کانال فعال دریافت و توسط AI پردازش می‌شود، اینجا
-    ثبت می‌شود — چه آگهی تشخیص داده شود چه نه.
-    """
     conn = _connect()
     try:
         conn.execute(
@@ -573,10 +578,6 @@ def log_received_message(channel: str, is_ad: bool) -> None:
 
 
 def get_message_counts_per_channel() -> list[dict]:
-    """
-    برای هر کانال، تعداد کل پیام‌های دریافتی امروز (چه آگهی چه غیرآگهی) و
-    تعداد آن‌هایی که واقعاً آگهی تشخیص داده شده‌اند را برمی‌گرداند.
-    """
     conn = _connect()
     conn.row_factory = sqlite3.Row
     try:
@@ -597,7 +598,6 @@ def get_message_counts_per_channel() -> list[dict]:
 
 
 def clear_message_log() -> None:
-    """پاکسازی جدول message_log — برای اجرا در کنار پاکسازی نیمه‌شب."""
     conn = _connect()
     try:
         conn.execute("DELETE FROM message_log")
@@ -607,15 +607,6 @@ def clear_message_log() -> None:
 
 
 def get_existing_message_ids_for_channel(channel: str, since_iso: str) -> set[int]:
-    """
-    مجموعه‌ی message_id هایی که از این کانال، از since_iso به بعد، از قبل
-    توی car_ads ذخیره شده‌اند — برای ابزار «ترمیم/بک‌فیل» استفاده می‌شود تا
-    پیام‌هایی که قبلاً بررسی و به‌عنوان آگهی واقعی ذخیره شده‌اند، دوباره به
-    AI فرستاده نشوند. توجه: پیام‌هایی که قبلاً بررسی شده ولی is_ad=false
-    بوده‌اند، چون در car_ads ذخیره نمی‌شوند، در این مجموعه نیستند — یعنی
-    ابزار ترمیم ممکن است بعضی پیام‌های غیرآگهی را دوباره چک کند؛ این یک
-    هزینه‌ی قابل‌قبول است، نه یک باگ.
-    """
     conn = _connect()
     try:
         rows = conn.execute(
@@ -628,7 +619,6 @@ def get_existing_message_ids_for_channel(channel: str, since_iso: str) -> set[in
 
 
 def count_ads_for_channel_since(channel: str, since_iso: str) -> int:
-    """تعداد آگهی‌های واقعی ذخیره‌شده‌ی این کانال از since_iso به بعد."""
     conn = _connect()
     try:
         row = conn.execute(
@@ -638,3 +628,39 @@ def count_ads_for_channel_since(channel: str, since_iso: str) -> int:
     finally:
         conn.close()
     return row[0] if row else 0
+
+
+def upsert_channel_backfill_status(channel: str, existing_ads_count: int, total_messages_today: int, text_messages_today: int) -> None:
+    """
+    آخرین وضعیت یک کانال (برای ابزار ترمیم) را ذخیره/به‌روز می‌کند — تا با
+    رفرش صفحه‌ی backfill.html، داده‌ها از بین نروند و همیشه آخرین وضعیت
+    واقعی نمایش داده شود.
+    """
+    conn = _connect()
+    try:
+        conn.execute(
+            """
+            INSERT INTO channel_backfill_status (channel, existing_ads_count, total_messages_today, text_messages_today, checked_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(channel) DO UPDATE SET
+                existing_ads_count = excluded.existing_ads_count,
+                total_messages_today = excluded.total_messages_today,
+                text_messages_today = excluded.text_messages_today,
+                checked_at = excluded.checked_at
+            """,
+            (channel, existing_ads_count, total_messages_today, text_messages_today, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_all_channel_backfill_statuses() -> list[dict]:
+    """همه‌ی آخرین وضعیت‌های ذخیره‌شده — برای پُرکردن صفحه‌ی backfill.html بدون نیاز به بررسی دستی دوباره."""
+    conn = _connect()
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute("SELECT * FROM channel_backfill_status").fetchall()
+    finally:
+        conn.close()
+    return [dict(row) for row in rows]

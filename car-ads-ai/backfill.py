@@ -15,15 +15,16 @@ backfill.py — ابزار دستی «ترمیم/بک‌فیل»: برای یک 
 poll می‌کند.
 
 نکته‌ی مهم درباره‌ی event loop: تابع extract_car_ad (در ai_pool/extractor.py)
-یک تابع sync معمولی است — از requests.post (نه httpx async) استفاده می‌کند
-و علاوه‌بر آن، قبل از هر تماس واقعی به AI، داخل llm_pool._wait_for_rate_limit
-یک time.sleep synchronous هم صدا می‌زند. اگر این تابع مستقیم و بدون واسطه
-داخل یک async def صدا زده شود، کل event loop اصلی FastAPI/uvicorn را برای
-مدت آن تماس (که با rate limit می‌تواند ده‌ها ثانیه طول بکشد) کاملاً قفل
-می‌کند — یعنی هیچ درخواست دیگری (نه از index.html، نه خودِ backfill.html)
-در آن بازه پاسخ داده نمی‌شود. برای همین، extract_car_ad همیشه از طریق
-loop.run_in_executor(None, ...) در یک ترد جدا اجرا می‌شود؛ دقیقاً همان
-الگویی که listener.py برای process_message استفاده می‌کند.
+یک تابع sync معمولی است — از requests.post استفاده می‌کند و علاوه‌بر آن
+یک time.sleep synchronous هم داخلش هست (rate limiter). برای همین همیشه از
+طریق loop.run_in_executor اجرا می‌شود تا event loop اصلی FastAPI/uvicorn
+هیچ‌وقت قفل نشود.
+
+نکته‌ی مهم درباره‌ی persist وضعیت: هر بار که وضعیت یک کانال بررسی می‌شود
+(چه با check_channel_status، چه در پایان یک ترمیم)، نتیجه در جدول
+channel_backfill_status (دیتابیس) هم ذخیره می‌شود — تا فرانت‌اند با رفرش
+صفحه، همیشه آخرین وضعیت واقعی را از سرور بخواند، نه اینکه هر بار همه‌چیز
+را از صفر و خالی نشان دهد.
 
 قبل از اولین استفاده، یک‌بار باید دستی لاگین شود:
     py backfill.py --login
@@ -45,6 +46,8 @@ from db import (
     save_ad,
     get_existing_message_ids_for_channel,
     count_ads_for_channel_since,
+    upsert_channel_backfill_status,
+    get_all_channel_backfill_statuses,
 )
 
 load_dotenv()
@@ -68,7 +71,7 @@ SESSION_NAME = "backfill_session"
 # ---------- قفل هم‌زمانی + وضعیت job ها (در-حافظه) ----------
 _backfill_running = False
 _backfill_current_channel: str | None = None
-_jobs: dict[str, dict] = {}  # job_id -> {status, channel, processed, total, added_count, added_ads, error, ...}
+_jobs: dict[str, dict] = {}
 
 
 def is_backfill_running() -> dict:
@@ -115,8 +118,8 @@ def _midnight_tehran_utc_iso() -> str:
 
 async def check_channel_status(channel_username: str) -> dict:
     """
-    وضعیت لحظه‌ای یک کانال — بدون فرستادن چیزی به AI، فقط شمارش سریع
-    (client.iter_messages خودش async است، پس اینجا event loop قفل نمی‌شود).
+    وضعیت لحظه‌ای یک کانال — بدون فرستادن چیزی به AI، فقط شمارش سریع.
+    نتیجه هم در دیتابیس ذخیره می‌شود تا با رفرش صفحه از بین نرود.
     """
     since_iso = _midnight_tehran_utc_iso()
     existing_ads_count = count_ads_for_channel_since(channel_username, since_iso)
@@ -139,6 +142,8 @@ async def check_channel_status(channel_username: str) -> dict:
             if message.message and message.message.strip():
                 text_messages_today += 1
 
+        upsert_channel_backfill_status(channel_username, existing_ads_count, total_messages_today, text_messages_today)
+
         return {
             "channel": channel_username,
             "existing_ads_count": existing_ads_count,
@@ -150,10 +155,6 @@ async def check_channel_status(channel_username: str) -> dict:
 
 
 def start_backfill_job(channel_username: str) -> str:
-    """
-    یک job جدید می‌سازد و اجرای واقعی را در پس‌زمینه شروع می‌کند.
-    فوراً یک job_id برمی‌گرداند — بدون منتظرماندن برای اتمام کار.
-    """
     global _backfill_running, _backfill_current_channel
 
     if _backfill_running:
@@ -183,14 +184,6 @@ def start_backfill_job(channel_username: str) -> str:
 
 
 async def _run_backfill_job(job_id: str, channel_username: str) -> None:
-    """
-    اجرای واقعی — در پس‌زمینه، بدون بلاک‌کردن هیچ HTTP request ای.
-
-    نکته‌ی حیاتی: extract_car_ad (تابع sync و کند) همیشه از طریق
-    run_in_executor صدا زده می‌شود — هرگز مستقیم await نمی‌شود — تا
-    event loop اصلی uvicorn در طول کل عملیات (که می‌تواند دقیقه‌ها طول
-    بکشد) کاملاً آزاد و پاسخگو بماند.
-    """
     global _backfill_running, _backfill_current_channel
     job = _jobs[job_id]
     loop = asyncio.get_running_loop()
@@ -226,7 +219,7 @@ async def _run_backfill_job(job_id: str, channel_username: str) -> None:
                     continue
                 candidate_messages.append(message)
 
-            candidate_messages.reverse()  # قدیمی‌ترین به جدیدترین
+            candidate_messages.reverse()
 
             job["total"] = len(candidate_messages)
             job["total_messages_today"] = total_messages_today
@@ -238,7 +231,6 @@ async def _run_backfill_job(job_id: str, channel_username: str) -> None:
                 telegram_date = message.date.astimezone(TEHRAN_TZ).isoformat()
 
                 try:
-                    # اجرای تابع sync و کند در یک ترد جدا — event loop آزاد می‌ماند
                     result = await loop.run_in_executor(None, extract_car_ad, text)
                 except Exception as e:
                     print(f"⚠️ خطا در استخراج پیام {message.id} از «{channel_username}»: {e}")
@@ -266,6 +258,14 @@ async def _run_backfill_job(job_id: str, channel_username: str) -> None:
 
             total_ads_now = count_ads_for_channel_since(channel_username, since_iso)
             job["total_ads_now"] = total_ads_now
+
+            # persist کردن وضعیت جدید در دیتابیس — text_messages_today را از
+            # آخرین وضعیت ذخیره‌شده (اگر check_channel_status قبلاً زده شده
+            # بود) می‌گیریم، وگرنه از total_messages_today تخمین می‌زنیم.
+            existing_status = {s["channel"]: s for s in get_all_channel_backfill_statuses()}.get(channel_username)
+            text_messages_estimate = existing_status["text_messages_today"] if existing_status else total_messages_today
+            upsert_channel_backfill_status(channel_username, total_ads_now, total_messages_today, text_messages_estimate)
+
             job["status"] = "done"
         finally:
             await client.disconnect()

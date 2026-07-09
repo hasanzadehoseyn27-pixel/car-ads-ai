@@ -43,7 +43,13 @@ from db import (
     get_message_counts_per_channel,
 )
 from channel_extractor import extract_channels_from_group, rescan_monitored_group_now, daily_scan_loop
-from backfill import check_channel_status, start_backfill_job, get_job_progress, is_backfill_running
+from backfill import (
+    check_channel_status,
+    start_backfill_job,
+    get_job_progress,
+    is_backfill_running,
+    get_all_channel_backfill_statuses,
+)
 
 app = FastAPI(title="car-ads-ai analytics API")
 
@@ -392,3 +398,9 @@ def backfill_progress(job_id: str = Query(...)):
     if job is None:
         raise HTTPException(status_code=404, detail="این job پیدا نشد")
     return job
+
+
+@app.get("/backfill/all-status")
+def backfill_all_status():
+    """آخرین وضعیت ذخیره‌شده‌ی همه‌ی کانال‌ها — برای پُرکردن صفحه بدون نیاز به بررسی دستی دوباره."""
+    return {"data": get_all_channel_backfill_statuses()}

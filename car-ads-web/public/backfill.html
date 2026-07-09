@@ -109,6 +109,8 @@
           0 8px 24px -12px rgba(0, 0, 0, 0.5);
         font-size: 13px;
         color: var(--text-dim);
+        flex-wrap: wrap;
+        justify-content: center;
       }
       .summary-stat .stat-num {
         color: var(--accent-bright);
@@ -267,7 +269,6 @@
         background: #14331f;
       }
 
-      /* ردیف‌هایی که تعداد ذخیره‌شده دقیقاً برابر تعداد پیام متنی امروز است — یعنی هیچ پیامی جا نمانده */
       tbody tr.row-complete {
         background: rgba(6, 78, 59, 0.35);
         border-inline-start: 3px solid #22c55e;
@@ -277,9 +278,6 @@
       }
       tbody tr.row-complete .channel-name-cell {
         color: #6ee7b7;
-      }
-      tbody tr.row-complete td#status-cell-highlight {
-        background: rgba(34, 197, 94, 0.12);
       }
 
       .channel-name-cell {
@@ -305,6 +303,11 @@
         background: #064e3b;
         border-radius: 999px;
         padding: 1px 8px;
+        margin-inline-start: 6px;
+      }
+      .checked-time {
+        color: var(--text-faint);
+        font-size: 10.5px;
         margin-inline-start: 6px;
       }
       .row-actions {
@@ -467,8 +470,6 @@
           width: 100%;
         }
         .summary-stat {
-          flex-wrap: wrap;
-          justify-content: center;
           padding: 10px 16px;
         }
       }
@@ -490,7 +491,8 @@
       این ابزار مستقل از سیستم زنده است و هیچ تأثیری روی پردازش لحظه‌ای ندارد.
       برای هر کانال، پیام‌های «امروز» (از نیمه‌شب به وقت تهران تا الان) را از
       تلگرام می‌خوانَد، پیام‌هایی که هنوز در دیتابیس ثبت نشده‌اند را به هوش
-      مصنوعی می‌فرستد، و آگهی‌های واقعی جدید را ذخیره می‌کند.
+      مصنوعی می‌فرستد، و آگهی‌های واقعی جدید را ذخیره می‌کند. آخرین وضعیت هر
+      کانال در دیتابیس ذخیره می‌شود — با رفرش صفحه از بین نمی‌رود.
     </div>
 
     <div class="summary-stat-wrap">
@@ -588,15 +590,11 @@
       const PROGRESS_POLL_MS = 2000;
 
       let allChannels = [];
-      let channelStatusCache = {};
+      let channelStatusCache = {}; // username -> {existing_ads_count, total_messages_today, text_messages_today, checked_at}
       let lockPollTimer = null;
       let runAllActive = false;
       let runAllStopRequested = false;
 
-      /**
-       * تبدیل امن یک عدد به رشته‌ی فارسی — اگر مقدار null/undefined/NaN باشد،
-       * به‌جای کرش‌کردن، مقدار پیش‌فرض (۰) را نشان می‌دهد.
-       */
       function safeNum(value) {
         const n = Number(value);
         return Number.isFinite(n) ? n : 0;
@@ -620,10 +618,6 @@
         }
       }
 
-      /**
-       * بررسی می‌کند آیا این کانال «کامل» است — یعنی تعداد آگهی ذخیره‌شده
-       * دقیقاً برابر تعداد پیام‌های متنی امروز است.
-       */
       function isChannelComplete(statusCache) {
         if (!statusCache) return false;
         const existing = safeNum(statusCache.existing_ads_count);
@@ -631,11 +625,6 @@
         return existing === textMessages;
       }
 
-      /**
-       * محاسبه‌ی مجدد و نمایش خلاصه‌ی آماری بالای صفحه — بر اساس همه‌ی
-       * کانال‌هایی که تا الان وضعیتشان بررسی شده (چه با «بررسی وضعیت»،
-       * چه بعد از یک ترمیم کامل).
-       */
       function updateSummaryStats() {
         let sumText = 0;
         let sumExisting = 0;
@@ -657,17 +646,39 @@
         );
       }
 
+      /**
+       * بارگذاری اولیه‌ی صفحه: هم‌زمان لیست کانال‌ها و آخرین وضعیت‌های
+       * ذخیره‌شده در دیتابیس را می‌خواند — یعنی از همان لحظه‌ی اول (بدون
+       * نیاز به کلیک دستی «بررسی وضعیت») جدول و آمار بالای صفحه با آخرین
+       * داده‌ی واقعی پُر می‌شوند، و با رفرش صفحه هم چیزی از بین نمی‌رود
+       * چون منبع داده خودِ دیتابیس است، نه فقط حافظه‌ی مرورگر.
+       */
       async function loadChannels() {
         const tbody = document.getElementById("channelsTableBody");
         tbody.innerHTML =
           '<tr><td colspan="4" class="empty">در حال بارگذاری...</td></tr>';
         try {
-          const res = await fetch("/api/car-ads-channels");
-          const json = await res.json();
-          allChannels = (json.data || [])
+          const [channelsRes, statusRes] = await Promise.all([
+            fetch("/api/car-ads-channels"),
+            fetch("/api/car-ads-backfill-all-status"),
+          ]);
+          const channelsJson = await channelsRes.json();
+          const statusJson = await statusRes.json();
+
+          allChannels = (channelsJson.data || [])
             .filter((c) => c.active)
             .sort((a, b) => a.username.localeCompare(b.username));
+
           channelStatusCache = {};
+          (statusJson.data || []).forEach((s) => {
+            channelStatusCache[s.channel] = {
+              existing_ads_count: s.existing_ads_count,
+              total_messages_today: s.total_messages_today,
+              text_messages_today: s.text_messages_today,
+              checked_at: s.checked_at,
+            };
+          });
+
           renderChannelsTable();
           updateSummaryStats();
         } catch (err) {
@@ -734,6 +745,11 @@
         const badge = complete
           ? '<span class="complete-badge">✅ کامل</span>'
           : "";
+        const timeText = statusCache.checked_at
+          ? `<span class="checked-time">(${formatDate(
+              statusCache.checked_at
+            )})</span>`
+          : "";
         return `
         <span class="status-cell">
           ذخیره‌شده: <span class="${numClass}">${fa(
@@ -744,15 +760,15 @@
           )}</span>
           (متنی: <span class="${numClass}">${fa(
           statusCache.text_messages_today
-        )}</span>)${badge}
+        )}</span>)${badge}${timeText}
         </span>
       `;
       }
 
       /**
-       * بعد از هر آپدیت وضعیت یک کانال (چک یا ترمیم)، کلاس row-complete
-       * را روی خودِ <tr> اعمال/حذف می‌کند و خلاصه‌ی آماری بالای صفحه را
-       * دوباره حساب می‌کند.
+       * بعد از هر آپدیت وضعیت یک کانال (چک یا ترمیم)، فقط همان ردیف را
+       * دوباره رندر می‌کند (بدون رفرش کل صفحه یا کل جدول) و خلاصه‌ی
+       * آماری بالای صفحه را هم دوباره حساب می‌کند.
        */
       function updateRowCompleteClass(channel) {
         const row = document.getElementById(`channel-row-${channel}`);
@@ -782,8 +798,13 @@
             statusCell.innerHTML = `<span style="color: var(--danger);">❌ ${json.error}</span>`;
             return;
           }
-          channelStatusCache[channel] = json;
-          statusCell.innerHTML = renderStatusHtml(json);
+          channelStatusCache[channel] = {
+            existing_ads_count: json.existing_ads_count,
+            total_messages_today: json.total_messages_today,
+            text_messages_today: json.text_messages_today,
+            checked_at: new Date().toISOString(),
+          };
+          statusCell.innerHTML = renderStatusHtml(channelStatusCache[channel]);
           updateRowCompleteClass(channel);
         } catch (err) {
           statusCell.innerHTML = `<span style="color: var(--danger);">❌ خطا: ${err.message}</span>`;
@@ -824,12 +845,6 @@
        * شروع ترمیم یک کانال + polling زنده‌ی پیشرفت.
        * silent=true یعنی مودال نتیجه در پایان باز نمی‌شود (برای run-all خودکار).
        * خروجی Promise که وقتی job واقعاً تمام شد resolve می‌شود.
-       *
-       * نکته: بعد از پایان ترمیم، فقط تعداد ذخیره‌شده (total_ads_now) از
-       * سرور به‌روز است؛ برای تعداد پیام متنی امروز، اگر قبلاً «بررسی
-       * وضعیت» زده شده باشد همان مقدار را حفظ می‌کنیم (چون در طول ترمیم
-       * تغییری در تعداد پیام‌های امروز رخ نداده)، وگرنه از total_messages_today
-       * (شامل پیام‌های غیرمتنی هم) به‌عنوان نزدیک‌ترین تخمین استفاده می‌شود.
        */
       function runBackfillWithProgress(channel, silent) {
         return new Promise(async (resolve) => {
@@ -921,6 +936,7 @@
                     existing_ads_count: totalAdsNow,
                     total_messages_today: totalMessagesToday,
                     text_messages_today: textMessagesToday,
+                    checked_at: new Date().toISOString(),
                   };
 
                   if (statusCell)
