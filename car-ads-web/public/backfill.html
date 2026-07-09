@@ -84,6 +84,20 @@
         margin-bottom: 20px;
         flex-wrap: wrap;
       }
+      .legend {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--text-faint);
+        margin-inline-start: auto;
+      }
+      .legend-swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        display: inline-block;
+      }
       .card {
         background: var(--card);
         border: 1px solid var(--card-border);
@@ -222,6 +236,19 @@
       tbody tr.active-row {
         background: #14331f;
       }
+
+      /* ردیف‌هایی که تعداد ذخیره‌شده دقیقاً برابر تعداد پیام متنی امروز است — یعنی هیچ پیامی جا نمانده */
+      tbody tr.row-complete {
+        background: rgba(6, 78, 59, 0.35);
+        border-inline-start: 3px solid #22c55e;
+      }
+      tbody tr.row-complete:hover {
+        background: rgba(6, 78, 59, 0.5);
+      }
+      tbody tr.row-complete .channel-name-cell {
+        color: #6ee7b7;
+      }
+
       .channel-name-cell {
         color: var(--accent-bright);
         font-weight: 600;
@@ -233,6 +260,19 @@
       .status-cell .num {
         color: var(--accent-bright);
         font-weight: 700;
+      }
+      .status-cell .num.complete {
+        color: #6ee7b7;
+      }
+      .complete-badge {
+        display: inline-block;
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #6ee7b7;
+        background: #064e3b;
+        border-radius: 999px;
+        padding: 1px 8px;
+        margin-inline-start: 6px;
       }
       .row-actions {
         display: flex;
@@ -389,6 +429,10 @@
         .progress-bar-wrap {
           width: 90px;
         }
+        .legend {
+          margin-inline-start: 0;
+          width: 100%;
+        }
       }
     </style>
   </head>
@@ -396,6 +440,13 @@
     <div class="page-header">
       <h1>🔧 ابزار ترمیم/بک‌فیل کانال</h1>
       <a href="/index.html" class="back-link">← بازگشت به داشبورد</a>
+      <div class="legend">
+        <span
+          class="legend-swatch"
+          style="background: rgba(6, 78, 59, 0.6); border: 1px solid #22c55e"
+        ></span>
+        ردیف سبز = تعداد ذخیره‌شده برابر تعداد پیام متنی امروز است (کامل)
+      </div>
     </div>
     <div class="top-hint">
       این ابزار مستقل از سیستم زنده است و هیچ تأثیری روی پردازش لحظه‌ای ندارد.
@@ -486,8 +537,7 @@
 
       /**
        * تبدیل امن یک عدد به رشته‌ی فارسی — اگر مقدار null/undefined/NaN باشد،
-       * به‌جای کرش‌کردن، مقدار پیش‌فرض (۰) را نشان می‌دهد. این تابع دور تمام
-       * جاهایی که ممکن است بک‌اند یک فیلد را خالی برگرداند استفاده می‌شود.
+       * به‌جای کرش‌کردن، مقدار پیش‌فرض (۰) را نشان می‌دهد.
        */
       function safeNum(value) {
         const n = Number(value);
@@ -510,6 +560,25 @@
         } catch {
           return iso;
         }
+      }
+
+      /**
+       * بررسی می‌کند آیا این کانال «کامل» است — یعنی تعداد آگهی ذخیره‌شده
+       * دقیقاً برابر تعداد پیام‌های متنی امروز است. اگر هنوز وضعیتش بررسی
+       * نشده باشد (statusCache نداریم)، false برمی‌گرداند.
+       */
+      function isChannelComplete(statusCache) {
+        if (!statusCache) return false;
+        const existing = safeNum(statusCache.existing_ads_count);
+        const textMessages = safeNum(statusCache.text_messages_today);
+        // اگر هنوز هیچ پیام متنی‌ای شمارش نشده (هنوز بررسی نشده)، کامل حساب نمی‌شود
+        if (
+          textMessages === 0 &&
+          existing === 0 &&
+          statusCache.text_messages_today === undefined
+        )
+          return false;
+        return existing === textMessages;
       }
 
       async function loadChannels() {
@@ -556,6 +625,9 @@
             '<span style="color: var(--text-faint);">هنوز بررسی نشده</span>';
           if (statusCache) {
             statusHtml = renderStatusHtml(statusCache);
+            if (isChannelComplete(statusCache)) {
+              tr.classList.add("row-complete");
+            }
           }
 
           tr.innerHTML = `
@@ -580,19 +652,39 @@
       }
 
       function renderStatusHtml(statusCache) {
+        const complete = isChannelComplete(statusCache);
+        const numClass = complete ? "num complete" : "num";
+        const badge = complete
+          ? '<span class="complete-badge">✅ کامل</span>'
+          : "";
         return `
         <span class="status-cell">
-          ذخیره‌شده: <span class="num">${fa(
-            statusCache.existing_ads_count
-          )}</span>
+          ذخیره‌شده: <span class="${numClass}">${fa(
+          statusCache.existing_ads_count
+        )}</span>
           — کل پیام امروز: <span class="num">${fa(
             statusCache.total_messages_today
           )}</span>
-          (متنی: <span class="num">${fa(
-            statusCache.text_messages_today
-          )}</span>)
+          (متنی: <span class="${numClass}">${fa(
+          statusCache.text_messages_today
+        )}</span>)${badge}
         </span>
       `;
+      }
+
+      /**
+       * بعد از هر آپدیت وضعیت یک کانال (چک یا ترمیم)، کلاس row-complete
+       * را روی خودِ <tr> اعمال/حذف می‌کند.
+       */
+      function updateRowCompleteClass(channel) {
+        const row = document.getElementById(`channel-row-${channel}`);
+        if (!row) return;
+        const statusCache = channelStatusCache[channel];
+        if (statusCache && isChannelComplete(statusCache)) {
+          row.classList.add("row-complete");
+        } else {
+          row.classList.remove("row-complete");
+        }
       }
 
       async function checkStatus(channel) {
@@ -612,6 +704,7 @@
           }
           channelStatusCache[channel] = json;
           statusCell.innerHTML = renderStatusHtml(json);
+          updateRowCompleteClass(channel);
         } catch (err) {
           statusCell.innerHTML = `<span style="color: var(--danger);">❌ خطا: ${err.message}</span>`;
         }
@@ -734,26 +827,25 @@
                   const totalAdsNow = safeNum(job.total_ads_now);
                   const totalMessagesToday = safeNum(job.total_messages_today);
                   const addedCount = safeNum(job.added_count);
-                  if (statusCell) {
-                    statusCell.innerHTML = `
-                    <span class="status-cell">
-                      ذخیره‌شده: <span class="num">${fa(totalAdsNow)}</span>
-                      — کل پیام امروز: <span class="num">${fa(
-                        totalMessagesToday
-                      )}</span>
-                      — <span style="color:#6ee7b7;">تازه‌پیداشده: ${fa(
-                        addedCount
-                      )}</span>
-                    </span>
-                  `;
-                  }
+
+                  // تعداد پیام متنی امروز را از کش قبلی (اگر بررسی وضعیت شده بود) نگه می‌داریم؛
+                  // اگر نبود، از total_messages_today (که شامل غیرمتنی هم می‌شود) به‌عنوان تخمین استفاده می‌کنیم.
+                  const textMessagesToday =
+                    channelStatusCache[channel]?.text_messages_today ??
+                    totalMessagesToday;
+
                   channelStatusCache[channel] = {
                     existing_ads_count: totalAdsNow,
                     total_messages_today: totalMessagesToday,
-                    text_messages_today:
-                      channelStatusCache[channel]?.text_messages_today ??
-                      totalMessagesToday,
+                    text_messages_today: textMessagesToday,
                   };
+
+                  if (statusCell)
+                    statusCell.innerHTML = renderStatusHtml(
+                      channelStatusCache[channel]
+                    );
+                  updateRowCompleteClass(channel);
+
                   if (row) row.classList.remove("active-row");
                   if (!silent) showResultModal(channel, job);
                   resolve({ success: true, added_count: addedCount });
@@ -770,7 +862,6 @@
                   return;
                 }
 
-                // وضعیت ناشناخته — برای اطمینان دوباره poll کن به‌جای کرش‌کردن
                 setTimeout(poll, PROGRESS_POLL_MS);
               } catch (err) {
                 if (statusCell)
