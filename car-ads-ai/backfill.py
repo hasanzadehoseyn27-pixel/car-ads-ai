@@ -14,6 +14,17 @@ backfill.py — ابزار دستی «ترمیم/بک‌فیل»: برای یک 
 (_jobs) ثبت می‌شود؛ فرانت‌اند با یک job_id، هر چند ثانیه وضعیت را
 poll می‌کند.
 
+نکته‌ی مهم درباره‌ی event loop: تابع extract_car_ad (در ai_pool/extractor.py)
+یک تابع sync معمولی است — از requests.post (نه httpx async) استفاده می‌کند
+و علاوه‌بر آن، قبل از هر تماس واقعی به AI، داخل llm_pool._wait_for_rate_limit
+یک time.sleep synchronous هم صدا می‌زند. اگر این تابع مستقیم و بدون واسطه
+داخل یک async def صدا زده شود، کل event loop اصلی FastAPI/uvicorn را برای
+مدت آن تماس (که با rate limit می‌تواند ده‌ها ثانیه طول بکشد) کاملاً قفل
+می‌کند — یعنی هیچ درخواست دیگری (نه از index.html، نه خودِ backfill.html)
+در آن بازه پاسخ داده نمی‌شود. برای همین، extract_car_ad همیشه از طریق
+loop.run_in_executor(None, ...) در یک ترد جدا اجرا می‌شود؛ دقیقاً همان
+الگویی که listener.py برای process_message استفاده می‌کند.
+
 قبل از اولین استفاده، یک‌بار باید دستی لاگین شود:
     py backfill.py --login
 """
@@ -104,7 +115,8 @@ def _midnight_tehran_utc_iso() -> str:
 
 async def check_channel_status(channel_username: str) -> dict:
     """
-    وضعیت لحظه‌ای یک کانال — بدون فرستادن چیزی به AI، فقط شمارش سریع.
+    وضعیت لحظه‌ای یک کانال — بدون فرستادن چیزی به AI، فقط شمارش سریع
+    (client.iter_messages خودش async است، پس اینجا event loop قفل نمی‌شود).
     """
     since_iso = _midnight_tehran_utc_iso()
     existing_ads_count = count_ads_for_channel_since(channel_username, since_iso)
@@ -141,7 +153,6 @@ def start_backfill_job(channel_username: str) -> str:
     """
     یک job جدید می‌سازد و اجرای واقعی را در پس‌زمینه شروع می‌کند.
     فوراً یک job_id برمی‌گرداند — بدون منتظرماندن برای اتمام کار.
-    خروجی: job_id، یا در صورت اشغال‌بودن قفل، RuntimeError.
     """
     global _backfill_running, _backfill_current_channel
 
@@ -153,7 +164,7 @@ def start_backfill_job(channel_username: str) -> str:
 
     job_id = uuid.uuid4().hex
     _jobs[job_id] = {
-        "status": "starting",  # starting | scanning | processing | done | error
+        "status": "starting",
         "channel": channel_username,
         "processed": 0,
         "total": 0,
@@ -172,9 +183,17 @@ def start_backfill_job(channel_username: str) -> str:
 
 
 async def _run_backfill_job(job_id: str, channel_username: str) -> None:
-    """اجرای واقعی — در پس‌زمینه، بدون بلاک‌کردن هیچ HTTP request ای."""
+    """
+    اجرای واقعی — در پس‌زمینه، بدون بلاک‌کردن هیچ HTTP request ای.
+
+    نکته‌ی حیاتی: extract_car_ad (تابع sync و کند) همیشه از طریق
+    run_in_executor صدا زده می‌شود — هرگز مستقیم await نمی‌شود — تا
+    event loop اصلی uvicorn در طول کل عملیات (که می‌تواند دقیقه‌ها طول
+    بکشد) کاملاً آزاد و پاسخگو بماند.
+    """
     global _backfill_running, _backfill_current_channel
     job = _jobs[job_id]
+    loop = asyncio.get_running_loop()
 
     try:
         since_iso = _midnight_tehran_utc_iso()
@@ -219,7 +238,8 @@ async def _run_backfill_job(job_id: str, channel_username: str) -> None:
                 telegram_date = message.date.astimezone(TEHRAN_TZ).isoformat()
 
                 try:
-                    result = extract_car_ad(text)
+                    # اجرای تابع sync و کند در یک ترد جدا — event loop آزاد می‌ماند
+                    result = await loop.run_in_executor(None, extract_car_ad, text)
                 except Exception as e:
                     print(f"⚠️ خطا در استخراج پیام {message.id} از «{channel_username}»: {e}")
                     result = None
