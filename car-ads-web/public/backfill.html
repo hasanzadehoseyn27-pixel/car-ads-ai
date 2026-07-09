@@ -484,12 +484,27 @@
       let runAllActive = false;
       let runAllStopRequested = false;
 
+      /**
+       * تبدیل امن یک عدد به رشته‌ی فارسی — اگر مقدار null/undefined/NaN باشد،
+       * به‌جای کرش‌کردن، مقدار پیش‌فرض (۰) را نشان می‌دهد. این تابع دور تمام
+       * جاهایی که ممکن است بک‌اند یک فیلد را خالی برگرداند استفاده می‌شود.
+       */
+      function safeNum(value) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function fa(value) {
+        return safeNum(value).toLocaleString("fa-IR");
+      }
+
       function formatToman(amount) {
         if (amount === null || amount === undefined) return "—";
-        return amount.toLocaleString("fa-IR") + " تومان";
+        return fa(amount) + " تومان";
       }
 
       function formatDate(iso) {
+        if (!iso) return "—";
         try {
           return new Date(iso).toLocaleString("fa-IR");
         } catch {
@@ -544,7 +559,7 @@
           }
 
           tr.innerHTML = `
-          <td class="row-num">${(idx + 1).toLocaleString("fa-IR")}</td>
+          <td class="row-num">${fa(idx + 1)}</td>
           <td class="channel-name-cell">@${ch.username}</td>
           <td id="status-${ch.username}">${statusHtml}</td>
           <td>
@@ -567,14 +582,14 @@
       function renderStatusHtml(statusCache) {
         return `
         <span class="status-cell">
-          ذخیره‌شده: <span class="num">${statusCache.existing_ads_count.toLocaleString(
-            "fa-IR"
+          ذخیره‌شده: <span class="num">${fa(
+            statusCache.existing_ads_count
           )}</span>
-          — کل پیام امروز: <span class="num">${statusCache.total_messages_today.toLocaleString(
-            "fa-IR"
+          — کل پیام امروز: <span class="num">${fa(
+            statusCache.total_messages_today
           )}</span>
-          (متنی: <span class="num">${statusCache.text_messages_today.toLocaleString(
-            "fa-IR"
+          (متنی: <span class="num">${fa(
+            statusCache.text_messages_today
           )}</span>)
         </span>
       `;
@@ -660,6 +675,13 @@
             }
 
             const jobId = startJson.job_id;
+            if (!jobId) {
+              if (statusCell)
+                statusCell.innerHTML = `<span style="color: var(--danger);">❌ پاسخ نامعتبر از سرور (job_id نبود)</span>`;
+              if (row) row.classList.remove("active-row");
+              resolve({ success: false, error: "no job_id" });
+              return;
+            }
 
             const poll = async () => {
               try {
@@ -678,7 +700,9 @@
                   return;
                 }
 
-                if (job.status === "starting" || job.status === "scanning") {
+                const status = job.status || "starting";
+
+                if (status === "starting" || status === "scanning") {
                   if (statusCell) {
                     statusCell.innerHTML = `<span class="spinner-inline"></span> در حال اسکن پیام‌های کانال از تلگرام...`;
                   }
@@ -686,20 +710,19 @@
                   return;
                 }
 
-                if (job.status === "processing") {
-                  const total = job.total || 0;
-                  const processed = job.processed || 0;
+                if (status === "processing") {
+                  const total = safeNum(job.total);
+                  const processed = safeNum(job.processed);
+                  const addedCount = safeNum(job.added_count);
                   const pct =
                     total > 0 ? Math.round((processed / total) * 100) : 0;
                   if (statusCell) {
                     statusCell.innerHTML = `
                     <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width: ${pct}%;"></div></div>
-                    <span class="status-cell">پیام ${processed.toLocaleString(
-                      "fa-IR"
-                    )} از ${total.toLocaleString(
-                      "fa-IR"
-                    )} — تازه‌پیداشده: <span class="num">${job.added_count.toLocaleString(
-                      "fa-IR"
+                    <span class="status-cell">پیام ${fa(processed)} از ${fa(
+                      total
+                    )} — تازه‌پیداشده: <span class="num">${fa(
+                      addedCount
                     )}</span></span>
                   `;
                   }
@@ -707,43 +730,47 @@
                   return;
                 }
 
-                if (job.status === "done") {
+                if (status === "done") {
+                  const totalAdsNow = safeNum(job.total_ads_now);
+                  const totalMessagesToday = safeNum(job.total_messages_today);
+                  const addedCount = safeNum(job.added_count);
                   if (statusCell) {
                     statusCell.innerHTML = `
                     <span class="status-cell">
-                      ذخیره‌شده: <span class="num">${job.total_ads_now.toLocaleString(
-                        "fa-IR"
+                      ذخیره‌شده: <span class="num">${fa(totalAdsNow)}</span>
+                      — کل پیام امروز: <span class="num">${fa(
+                        totalMessagesToday
                       )}</span>
-                      — کل پیام امروز: <span class="num">${job.total_messages_today.toLocaleString(
-                        "fa-IR"
-                      )}</span>
-                      — <span style="color:#6ee7b7;">تازه‌پیداشده: ${job.added_count.toLocaleString(
-                        "fa-IR"
+                      — <span style="color:#6ee7b7;">تازه‌پیداشده: ${fa(
+                        addedCount
                       )}</span>
                     </span>
                   `;
                   }
                   channelStatusCache[channel] = {
-                    existing_ads_count: job.total_ads_now,
-                    total_messages_today: job.total_messages_today,
+                    existing_ads_count: totalAdsNow,
+                    total_messages_today: totalMessagesToday,
                     text_messages_today:
                       channelStatusCache[channel]?.text_messages_today ??
-                      job.total_messages_today,
+                      totalMessagesToday,
                   };
                   if (row) row.classList.remove("active-row");
                   if (!silent) showResultModal(channel, job);
-                  resolve({ success: true, added_count: job.added_count });
+                  resolve({ success: true, added_count: addedCount });
                   return;
                 }
 
-                if (job.status === "error") {
+                if (status === "error") {
                   if (statusCell)
-                    statusCell.innerHTML = `<span style="color: var(--danger);">❌ ${job.error}</span>`;
+                    statusCell.innerHTML = `<span style="color: var(--danger);">❌ ${
+                      job.error || "خطای نامشخص"
+                    }</span>`;
                   if (row) row.classList.remove("active-row");
-                  resolve({ success: false, error: job.error });
+                  resolve({ success: false, error: job.error || "unknown" });
                   return;
                 }
 
+                // وضعیت ناشناخته — برای اطمینان دوباره poll کن به‌جای کرش‌کردن
                 setTimeout(poll, PROGRESS_POLL_MS);
               } catch (err) {
                 if (statusCell)
@@ -774,14 +801,14 @@
           "resultModalTitle"
         ).textContent = `نتیجه‌ی ترمیم — @${channel}`;
         document.getElementById("resultSummary").innerHTML = `
-        <span>آگهی‌های تازه‌پیداشده: <span class="stat-value">${job.added_count.toLocaleString(
-          "fa-IR"
+        <span>آگهی‌های تازه‌پیداشده: <span class="stat-value">${fa(
+          job.added_count
         )}</span></span>
-        <span>تعداد کل آگهی ذخیره‌شده الان: <span class="stat-value">${job.total_ads_now.toLocaleString(
-          "fa-IR"
+        <span>تعداد کل آگهی ذخیره‌شده الان: <span class="stat-value">${fa(
+          job.total_ads_now
         )}</span></span>
-        <span>تعداد کل پیام‌های کانال امروز: <span class="stat-value">${job.total_messages_today.toLocaleString(
-          "fa-IR"
+        <span>تعداد کل پیام‌های کانال امروز: <span class="stat-value">${fa(
+          job.total_messages_today
         )}</span></span>
       `;
 
