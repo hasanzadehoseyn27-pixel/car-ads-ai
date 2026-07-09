@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ابزار ترمیم/بک‌فیل کانال</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0b1320;
+        --card: #141f33;
+        --card-border: #263248;
+        --header-bg: #0f3d3a;
+        --accent: #2dd4bf;
+        --accent-bright: #5eead4;
+        --text: #e7ecf3;
+        --text-dim: #93a1b8;
+        --text-faint: #5c6b85;
+        --danger: #fca5a5;
+        --radius-lg: 14px;
+        --radius-md: 10px;
+        --radius-sm: 7px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        overflow-x: hidden;
+        max-width: 100%;
+      }
+      body {
+        background: var(--bg);
+        background-image: radial-gradient(
+          circle at 15% 0%,
+          rgba(45, 212, 191, 0.07),
+          transparent 45%
+        );
+        color: var(--text);
+        font-family: "Vazirmatn", Tahoma, sans-serif;
+        margin: 0;
+        padding: 28px 32px 60px;
+      }
+      .page-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      h1 {
+        color: var(--accent-bright);
+        font-size: 21px;
+        font-weight: 700;
+        margin: 0;
+      }
+      .back-link {
+        color: var(--text-dim);
+        text-decoration: none;
+        font-size: 13px;
+        padding: 6px 12px;
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-sm);
+      }
+      .back-link:hover {
+        background: #1b2a45;
+        color: var(--text);
+      }
+      .top-hint {
+        color: var(--text-faint);
+        font-size: 12.5px;
+        margin: 6px 0 20px;
+        line-height: 1.8;
+      }
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
+          0 8px 24px -12px rgba(0, 0, 0, 0.5);
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+        padding: 0 2px;
+      }
+      input[type="text"] {
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-sm);
+        padding: 7px 12px;
+        font-family: inherit;
+        font-size: 13.5px;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      input[type="text"]:focus {
+        border-color: var(--accent);
+      }
+      .toolbar input[type="text"] {
+        min-width: 260px;
+        flex: 1;
+      }
+      button {
+        background: var(--header-bg);
+        color: var(--accent-bright);
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-sm);
+        padding: 7px 14px;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s, transform 0.1s, opacity 0.15s;
+        white-space: nowrap;
+      }
+      button:hover:not(:disabled) {
+        background: #115049;
+      }
+      button:active:not(:disabled) {
+        transform: scale(0.97);
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      button.secondary {
+        background: transparent;
+        color: var(--text-dim);
+        border-color: var(--card-border);
+      }
+      button.secondary:hover:not(:disabled) {
+        background: #1b2a45;
+        color: var(--text);
+      }
+      button.primary-strong {
+        background: var(--accent);
+        color: #04211d;
+        font-weight: 700;
+        border-color: var(--accent);
+      }
+      button.primary-strong:hover:not(:disabled) {
+        background: var(--accent-bright);
+      }
+      button.tiny {
+        font-size: 11.5px;
+        padding: 5px 10px;
+      }
+
+      .status-banner {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: var(--radius-sm);
+        font-size: 12.5px;
+        margin-bottom: 16px;
+      }
+      .status-banner.idle {
+        background: #0f3d3a;
+        color: var(--accent-bright);
+        border: 1px solid var(--card-border);
+      }
+      .status-banner.running {
+        background: #3f2d0f;
+        color: #fdba74;
+        border: 1px solid #7c2d12;
+        animation: pulse-bg 1.6s infinite;
+      }
+      @keyframes pulse-bg {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+
+      .channels-table-wrap {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+      }
+      th,
+      td {
+        padding: 11px 14px;
+        text-align: right;
+        border-bottom: 1px solid var(--card-border);
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      th {
+        background: var(--header-bg);
+        color: var(--accent-bright);
+        font-size: 12.5px;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+      }
+      th.row-num,
+      td.row-num {
+        text-align: center;
+        color: var(--text-faint);
+        width: 34px;
+      }
+      tbody tr:hover {
+        background: #1b2a45;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      tbody tr.active-row {
+        background: #14331f;
+      }
+      .channel-name-cell {
+        color: var(--accent-bright);
+        font-weight: 600;
+      }
+      .status-cell {
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .status-cell .num {
+        color: var(--accent-bright);
+        font-weight: 700;
+      }
+      .row-actions {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+      }
+      .empty {
+        color: var(--text-faint);
+        text-align: center;
+        padding: 30px 0;
+        font-size: 13px;
+      }
+      .spinner-inline {
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        border: 2px solid var(--card-border);
+        border-top-color: var(--accent-bright);
+        animation: spin 0.8s linear infinite;
+        display: inline-block;
+        vertical-align: middle;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .result-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 9, 16, 0.72);
+        backdrop-filter: blur(2px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+        padding: 20px;
+      }
+      .result-modal-box {
+        background: var(--bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+        width: 100%;
+        max-width: 720px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+      }
+      .result-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--card-border);
+      }
+      .result-modal-header h2 {
+        margin: 0;
+        color: var(--accent-bright);
+        font-size: 15.5px;
+        font-weight: 700;
+      }
+      .result-modal-header button {
+        background: none;
+        border: none;
+        color: var(--text-dim);
+        font-size: 13px;
+        padding: 4px 8px;
+      }
+      .result-summary {
+        padding: 14px 20px;
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        border-bottom: 1px solid var(--card-border);
+        font-size: 12.5px;
+        color: var(--text-dim);
+      }
+      .result-summary .stat-value {
+        color: var(--accent-bright);
+        font-weight: 700;
+      }
+      #resultAdsList {
+        overflow-y: auto;
+        padding: 14px 20px;
+        flex: 1;
+      }
+      .found-ad-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-md);
+        padding: 11px 14px;
+        margin-bottom: 8px;
+        font-size: 13px;
+      }
+      .found-ad-card .fa-name {
+        color: var(--accent-bright);
+        font-weight: 700;
+      }
+      .found-ad-card .fa-price {
+        color: var(--text);
+        margin-top: 3px;
+      }
+      .found-ad-card .fa-date {
+        color: var(--text-faint);
+        font-size: 11px;
+        margin-top: 4px;
+      }
+      .found-ad-card a {
+        color: var(--accent-bright);
+        text-decoration: none;
+        font-size: 11.5px;
+      }
+      .found-ad-card a:hover {
+        text-decoration: underline;
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding: 16px 12px 40px;
+        }
+        .toolbar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .toolbar input[type="text"] {
+          min-width: 0;
+          width: 100%;
+        }
+        th,
+        td {
+          padding: 8px 10px;
+          font-size: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-header">
+      <h1>🔧 ابزار ترمیم/بک‌فیل کانال</h1>
+      <a href="/index.html" class="back-link">← بازگشت به داشبورد</a>
+    </div>
+    <div class="top-hint">
+      این ابزار مستقل از سیستم زنده است و هیچ تأثیری روی پردازش لحظه‌ای ندارد.
+      برای هر کانال، پیام‌های «امروز» (از نیمه‌شب به وقت تهران تا الان) را از
+      تلگرام می‌خوانَد، پیام‌هایی که هنوز در دیتابیس ثبت نشده‌اند را به هوش
+      مصنوعی می‌فرستد، و آگهی‌های واقعی جدید را ذخیره می‌کند.
+    </div>
+
+    <div class="status-banner idle" id="lockStatusBanner">
+      ✅ هیچ عملیات ترمیمی در حال اجرا نیست
+    </div>
+
+    <div class="top-actions">
+      <button class="primary-strong" id="runAllBtn" onclick="startRunAll()">
+        ▶️ بررسی خودکار همه‌ی کانال‌ها (به ترتیب)
+      </button>
+      <button
+        class="secondary"
+        id="stopRunAllBtn"
+        onclick="stopRunAll()"
+        style="display: none"
+      >
+        ⏹️ توقف بررسی خودکار
+      </button>
+      <span
+        id="runAllProgressText"
+        style="color: var(--text-dim); font-size: 12.5px"
+      ></span>
+    </div>
+
+    <div class="card">
+      <div style="padding: 16px 16px 0">
+        <div class="toolbar">
+          <input
+            type="text"
+            id="channelFilterInput"
+            placeholder="جستجوی نام کانال..."
+            oninput="renderChannelsTable()"
+          />
+          <button class="secondary tiny" onclick="loadChannels()">
+            🔄 بارگذاری دوباره‌ی لیست
+          </button>
+        </div>
+      </div>
+      <div class="channels-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="row-num">ردیف</th>
+              <th>نام کانال</th>
+              <th>وضعیت</th>
+              <th>عملیات</th>
+            </tr>
+          </thead>
+          <tbody id="channelsTableBody">
+            <tr>
+              <td colspan="4" class="empty">در حال بارگذاری...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- مودال نتیجه‌ی ترمیم -->
+    <div
+      class="result-modal-overlay"
+      id="resultModalOverlay"
+      onclick="closeResultModalOnOverlay(event)"
+    >
+      <div class="result-modal-box">
+        <div class="result-modal-header">
+          <h2 id="resultModalTitle">نتیجه‌ی ترمیم</h2>
+          <button onclick="closeResultModal()">✕ بستن</button>
+        </div>
+        <div class="result-summary" id="resultSummary"></div>
+        <div id="resultAdsList"></div>
+      </div>
+    </div>
+
+    <script>
+      let allChannels = [];
+      let channelStatusCache = {}; // username -> {existing_ads_count, total_messages_today, text_messages_today}
+      let lockPollTimer = null;
+      let runAllActive = false;
+      let runAllStopRequested = false;
+
+      function formatToman(amount) {
+        if (amount === null || amount === undefined) return "—";
+        return amount.toLocaleString("fa-IR") + " تومان";
+      }
+
+      function formatDate(iso) {
+        try {
+          return new Date(iso).toLocaleString("fa-IR");
+        } catch {
+          return iso;
+        }
+      }
+
+      async function loadChannels() {
+        const tbody = document.getElementById("channelsTableBody");
+        tbody.innerHTML =
+          '<tr><td colspan="4" class="empty">در حال بارگذاری...</td></tr>';
+        try {
+          const res = await fetch("/api/car-ads-channels");
+          const json = await res.json();
+          allChannels = (json.data || [])
+            .filter((c) => c.active)
+            .sort((a, b) => a.username.localeCompare(b.username));
+          channelStatusCache = {};
+          renderChannelsTable();
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="4" class="empty">❌ خطا: ${err.message}</td></tr>`;
+        }
+      }
+
+      function getFilteredChannels() {
+        const q = document
+          .getElementById("channelFilterInput")
+          .value.trim()
+          .toLowerCase();
+        if (!q) return allChannels;
+        return allChannels.filter((c) => c.username.toLowerCase().includes(q));
+      }
+
+      function renderChannelsTable() {
+        const tbody = document.getElementById("channelsTableBody");
+        const filtered = getFilteredChannels();
+        tbody.innerHTML = "";
+        if (filtered.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="4" class="empty">کانالی پیدا نشد</td></tr>';
+          return;
+        }
+        filtered.forEach((ch, idx) => {
+          const tr = document.createElement("tr");
+          tr.id = `channel-row-${ch.username}`;
+
+          const statusCache = channelStatusCache[ch.username];
+          let statusHtml =
+            '<span style="color: var(--text-faint);">هنوز بررسی نشده</span>';
+          if (statusCache) {
+            statusHtml = `
+            <span class="status-cell">
+              ذخیره‌شده: <span class="num">${statusCache.existing_ads_count.toLocaleString(
+                "fa-IR"
+              )}</span>
+              — کل پیام امروز: <span class="num">${statusCache.total_messages_today.toLocaleString(
+                "fa-IR"
+              )}</span>
+              (متنی: <span class="num">${statusCache.text_messages_today.toLocaleString(
+                "fa-IR"
+              )}</span>)
+            </span>
+          `;
+          }
+
+          tr.innerHTML = `
+          <td class="row-num">${(idx + 1).toLocaleString("fa-IR")}</td>
+          <td class="channel-name-cell">@${ch.username}</td>
+          <td id="status-${ch.username}">${statusHtml}</td>
+          <td>
+            <div class="row-actions">
+              <button class="secondary tiny check-btn" data-channel="${
+                ch.username
+              }" onclick="checkStatus('${ch.username}')">🔍 بررسی وضعیت</button>
+              <button class="tiny start-btn" data-channel="${
+                ch.username
+              }" onclick="startBackfill('${
+            ch.username
+          }')">🔧 شروع ترمیم</button>
+            </div>
+          </td>
+        `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      async function checkStatus(channel) {
+        const statusCell = document.getElementById(`status-${channel}`);
+        statusCell.innerHTML =
+          '<span class="spinner-inline"></span> در حال بررسی...';
+        try {
+          const res = await fetch(
+            `/api/car-ads-backfill-channel-status?channel=${encodeURIComponent(
+              channel
+            )}`
+          );
+          const json = await res.json();
+          if (json.error) {
+            statusCell.innerHTML = `<span style="color: var(--danger);">❌ ${json.error}</span>`;
+            return;
+          }
+          channelStatusCache[channel] = json;
+          statusCell.innerHTML = `
+          <span class="status-cell">
+            ذخیره‌شده: <span class="num">${json.existing_ads_count.toLocaleString(
+              "fa-IR"
+            )}</span>
+            — کل پیام امروز: <span class="num">${json.total_messages_today.toLocaleString(
+              "fa-IR"
+            )}</span>
+            (متنی: <span class="num">${json.text_messages_today.toLocaleString(
+              "fa-IR"
+            )}</span>)
+          </span>
+        `;
+        } catch (err) {
+          statusCell.innerHTML = `<span style="color: var(--danger);">❌ خطا: ${err.message}</span>`;
+        }
+      }
+
+      function setAllButtonsDisabled(disabled) {
+        document.querySelectorAll(".check-btn, .start-btn").forEach((btn) => {
+          btn.disabled = disabled;
+        });
+        document.getElementById("runAllBtn").disabled = disabled;
+      }
+
+      async function pollLockStatus() {
+        try {
+          const res = await fetch("/api/car-ads-backfill-lock-status");
+          const json = await res.json();
+          const banner = document.getElementById("lockStatusBanner");
+          if (json.running) {
+            banner.className = "status-banner running";
+            banner.innerHTML = `<span class="spinner-inline"></span> در حال ترمیم کانال «@${json.channel}» — لطفاً صبر کن...`;
+            setAllButtonsDisabled(true);
+          } else {
+            banner.className = "status-banner idle";
+            banner.textContent = "✅ هیچ عملیات ترمیمی در حال اجرا نیست";
+            if (!runAllActive) setAllButtonsDisabled(false);
+          }
+        } catch (err) {}
+      }
+
+      function startLockPolling() {
+        if (lockPollTimer) clearInterval(lockPollTimer);
+        pollLockStatus();
+        lockPollTimer = setInterval(pollLockStatus, 3000);
+      }
+
+      async function startBackfill(channel) {
+        setAllButtonsDisabled(true);
+        const statusCell = document.getElementById(`status-${channel}`);
+        const originalStatusHtml = statusCell.innerHTML;
+        statusCell.innerHTML =
+          '<span class="spinner-inline"></span> در حال ترمیم...';
+
+        const row = document.getElementById(`channel-row-${channel}`);
+        if (row) row.classList.add("active-row");
+
+        try {
+          const res = await fetch("/api/car-ads-backfill-start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ channel }),
+          });
+          const json = await res.json();
+
+          if (row) row.classList.remove("active-row");
+
+          if (json.error) {
+            statusCell.innerHTML = `<span style="color: var(--danger);">❌ ${json.error}</span>`;
+            setAllButtonsDisabled(false);
+            return { success: false, error: json.error };
+          }
+
+          statusCell.innerHTML = `
+          <span class="status-cell">
+            ذخیره‌شده: <span class="num">${json.total_ads_now.toLocaleString(
+              "fa-IR"
+            )}</span>
+            — کل پیام امروز: <span class="num">${json.total_messages_today.toLocaleString(
+              "fa-IR"
+            )}</span>
+            — <span style="color:#6ee7b7;">تازه‌پیداشده: ${json.added_count.toLocaleString(
+              "fa-IR"
+            )}</span>
+          </span>
+        `;
+          channelStatusCache[channel] = {
+            existing_ads_count: json.total_ads_now,
+            total_messages_today: json.total_messages_today,
+            text_messages_today:
+              channelStatusCache[channel]?.text_messages_today ||
+              json.total_messages_today,
+          };
+
+          showResultModal(channel, json);
+          setAllButtonsDisabled(false);
+          return { success: true, added_count: json.added_count };
+        } catch (err) {
+          if (row) row.classList.remove("active-row");
+          statusCell.innerHTML = `<span style="color: var(--danger);">❌ خطا: ${err.message}</span>`;
+          setAllButtonsDisabled(false);
+          return { success: false, error: err.message };
+        }
+      }
+
+      function showResultModal(channel, result) {
+        document.getElementById(
+          "resultModalTitle"
+        ).textContent = `نتیجه‌ی ترمیم — @${channel}`;
+        document.getElementById("resultSummary").innerHTML = `
+        <span>آگهی‌های تازه‌پیداشده: <span class="stat-value">${result.added_count.toLocaleString(
+          "fa-IR"
+        )}</span></span>
+        <span>تعداد کل آگهی ذخیره‌شده الان: <span class="stat-value">${result.total_ads_now.toLocaleString(
+          "fa-IR"
+        )}</span></span>
+        <span>تعداد کل پیام‌های کانال امروز: <span class="stat-value">${result.total_messages_today.toLocaleString(
+          "fa-IR"
+        )}</span></span>
+      `;
+
+        const list = document.getElementById("resultAdsList");
+        list.innerHTML = "";
+        if (!result.added_ads || result.added_ads.length === 0) {
+          list.innerHTML =
+            '<div class="empty">هیچ آگهی جدیدی پیدا نشد — همه‌ی پیام‌های امروز از قبل بررسی شده بودند</div>';
+        } else {
+          result.added_ads.forEach((ad) => {
+            const card = document.createElement("div");
+            card.className = "found-ad-card";
+            card.innerHTML = `
+            <div class="fa-name">${ad.car_name || "نامشخص"}</div>
+            <div class="fa-price">${formatToman(ad.price_amount)}</div>
+            <div class="fa-date">${formatDate(ad.telegram_date)} — <a href="${
+              ad.telegram_link
+            }" target="_blank" rel="noopener">مشاهده در تلگرام ↗</a></div>
+          `;
+            list.appendChild(card);
+          });
+        }
+
+        document.getElementById("resultModalOverlay").style.display = "flex";
+      }
+
+      function closeResultModal() {
+        document.getElementById("resultModalOverlay").style.display = "none";
+      }
+      function closeResultModalOnOverlay(event) {
+        if (event.target.id === "resultModalOverlay") closeResultModal();
+      }
+
+      async function startRunAll() {
+        if (runAllActive) return;
+        runAllActive = true;
+        runAllStopRequested = false;
+        document.getElementById("runAllBtn").style.display = "none";
+        document.getElementById("stopRunAllBtn").style.display = "inline-block";
+        setAllButtonsDisabled(true);
+
+        const channelsToProcess = getFilteredChannels();
+        const progressEl = document.getElementById("runAllProgressText");
+
+        for (let i = 0; i < channelsToProcess.length; i++) {
+          if (runAllStopRequested) {
+            progressEl.textContent = `متوقف شد — ${i} از ${channelsToProcess.length} کانال بررسی شد.`;
+            break;
+          }
+          const ch = channelsToProcess[i];
+          progressEl.textContent = `در حال بررسی ${i + 1} از ${
+            channelsToProcess.length
+          }: @${ch.username}`;
+
+          // چون setAllButtonsDisabled(true) دکمه‌ها را غیرفعال کرده، مستقیم منطق داخلی startBackfill را صدا می‌زنیم
+          await startBackfillSilent(ch.username);
+
+          if (i < channelsToProcess.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+          }
+        }
+
+        if (!runAllStopRequested) {
+          progressEl.textContent = `✅ بررسی خودکار همه‌ی ${channelsToProcess.length} کانال تمام شد.`;
+        }
+
+        runAllActive = false;
+        document.getElementById("runAllBtn").style.display = "inline-block";
+        document.getElementById("stopRunAllBtn").style.display = "none";
+        setAllButtonsDisabled(false);
+      }
+
+      async function startBackfillSilent(channel) {
+        // مثل startBackfill ولی بدون باز کردن مودال نتیجه برای هر کانال (برای جلوگیری از انبوه مودال در run-all)
+        const statusCell = document.getElementById(`status-${channel}`);
+        if (!statusCell) return;
+        statusCell.innerHTML =
+          '<span class="spinner-inline"></span> در حال ترمیم...';
+        const row = document.getElementById(`channel-row-${channel}`);
+        if (row) row.classList.add("active-row");
+
+        try {
+          const res = await fetch("/api/car-ads-backfill-start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ channel }),
+          });
+          const json = await res.json();
+          if (row) row.classList.remove("active-row");
+
+          if (json.error) {
+            statusCell.innerHTML = `<span style="color: var(--danger);">❌ ${json.error}</span>`;
+            return;
+          }
+
+          statusCell.innerHTML = `
+          <span class="status-cell">
+            ذخیره‌شده: <span class="num">${json.total_ads_now.toLocaleString(
+              "fa-IR"
+            )}</span>
+            — کل پیام امروز: <span class="num">${json.total_messages_today.toLocaleString(
+              "fa-IR"
+            )}</span>
+            — <span style="color:#6ee7b7;">تازه‌پیداشده: ${json.added_count.toLocaleString(
+              "fa-IR"
+            )}</span>
+          </span>
+        `;
+          channelStatusCache[channel] = {
+            existing_ads_count: json.total_ads_now,
+            total_messages_today: json.total_messages_today,
+            text_messages_today:
+              channelStatusCache[channel]?.text_messages_today ||
+              json.total_messages_today,
+          };
+        } catch (err) {
+          if (row) row.classList.remove("active-row");
+          statusCell.innerHTML = `<span style="color: var(--danger);">❌ خطا: ${err.message}</span>`;
+        }
+      }
+
+      function stopRunAll() {
+        runAllStopRequested = true;
+        document.getElementById("runAllProgressText").textContent =
+          "در حال توقف بعد از کانال فعلی...";
+      }
+
+      loadChannels();
+      startLockPolling();
+    </script>
+  </body>
+</html>
