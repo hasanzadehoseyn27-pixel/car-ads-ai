@@ -74,15 +74,8 @@
       .top-hint {
         color: var(--text-faint);
         font-size: 12.5px;
-        margin: 6px 0 20px;
+        margin: 6px 0 16px;
         line-height: 1.8;
-      }
-      .top-actions {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 20px;
-        flex-wrap: wrap;
       }
       .legend {
         display: flex;
@@ -97,6 +90,43 @@
         height: 14px;
         border-radius: 3px;
         display: inline-block;
+      }
+
+      .summary-stat-wrap {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 18px;
+      }
+      .summary-stat {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 999px;
+        padding: 10px 26px;
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
+          0 8px 24px -12px rgba(0, 0, 0, 0.5);
+        font-size: 13px;
+        color: var(--text-dim);
+      }
+      .summary-stat .stat-num {
+        color: var(--accent-bright);
+        font-weight: 700;
+        font-size: 15px;
+      }
+      .summary-stat .stat-sep {
+        width: 1px;
+        height: 16px;
+        background: var(--card-border);
+      }
+
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
       }
       .card {
         background: var(--card);
@@ -247,6 +277,9 @@
       }
       tbody tr.row-complete .channel-name-cell {
         color: #6ee7b7;
+      }
+      tbody tr.row-complete td#status-cell-highlight {
+        background: rgba(34, 197, 94, 0.12);
       }
 
       .channel-name-cell {
@@ -433,6 +466,11 @@
           margin-inline-start: 0;
           width: 100%;
         }
+        .summary-stat {
+          flex-wrap: wrap;
+          justify-content: center;
+          padding: 10px 16px;
+        }
       }
     </style>
   </head>
@@ -453,6 +491,26 @@
       برای هر کانال، پیام‌های «امروز» (از نیمه‌شب به وقت تهران تا الان) را از
       تلگرام می‌خوانَد، پیام‌هایی که هنوز در دیتابیس ثبت نشده‌اند را به هوش
       مصنوعی می‌فرستد، و آگهی‌های واقعی جدید را ذخیره می‌کند.
+    </div>
+
+    <div class="summary-stat-wrap">
+      <div class="summary-stat">
+        <span
+          >مجموع پیام‌های متنی امروز (کانال‌های بررسی‌شده):
+          <span class="stat-num" id="sumTextMessages">۰</span></span
+        >
+        <span class="stat-sep"></span>
+        <span
+          >مجموع ذخیره‌شده:
+          <span class="stat-num" id="sumExistingAds">۰</span></span
+        >
+        <span class="stat-sep"></span>
+        <span
+          >کانال‌های بررسی‌شده:
+          <span class="stat-num" id="sumCheckedCount">۰</span> از
+          <span class="stat-num" id="sumTotalCount">۰</span></span
+        >
+      </div>
     </div>
 
     <div class="status-banner idle" id="lockStatusBanner">
@@ -497,7 +555,7 @@
             <tr>
               <th class="row-num">ردیف</th>
               <th>نام کانال</th>
-              <th>وضعیت</th>
+              <th>آخرین وضعیت</th>
               <th>عملیات</th>
             </tr>
           </thead>
@@ -564,21 +622,39 @@
 
       /**
        * بررسی می‌کند آیا این کانال «کامل» است — یعنی تعداد آگهی ذخیره‌شده
-       * دقیقاً برابر تعداد پیام‌های متنی امروز است. اگر هنوز وضعیتش بررسی
-       * نشده باشد (statusCache نداریم)، false برمی‌گرداند.
+       * دقیقاً برابر تعداد پیام‌های متنی امروز است.
        */
       function isChannelComplete(statusCache) {
         if (!statusCache) return false;
         const existing = safeNum(statusCache.existing_ads_count);
         const textMessages = safeNum(statusCache.text_messages_today);
-        // اگر هنوز هیچ پیام متنی‌ای شمارش نشده (هنوز بررسی نشده)، کامل حساب نمی‌شود
-        if (
-          textMessages === 0 &&
-          existing === 0 &&
-          statusCache.text_messages_today === undefined
-        )
-          return false;
         return existing === textMessages;
+      }
+
+      /**
+       * محاسبه‌ی مجدد و نمایش خلاصه‌ی آماری بالای صفحه — بر اساس همه‌ی
+       * کانال‌هایی که تا الان وضعیتشان بررسی شده (چه با «بررسی وضعیت»،
+       * چه بعد از یک ترمیم کامل).
+       */
+      function updateSummaryStats() {
+        let sumText = 0;
+        let sumExisting = 0;
+        let checkedCount = 0;
+
+        for (const username in channelStatusCache) {
+          const s = channelStatusCache[username];
+          sumText += safeNum(s.text_messages_today);
+          sumExisting += safeNum(s.existing_ads_count);
+          checkedCount += 1;
+        }
+
+        document.getElementById("sumTextMessages").textContent = fa(sumText);
+        document.getElementById("sumExistingAds").textContent = fa(sumExisting);
+        document.getElementById("sumCheckedCount").textContent =
+          fa(checkedCount);
+        document.getElementById("sumTotalCount").textContent = fa(
+          allChannels.length
+        );
       }
 
       async function loadChannels() {
@@ -593,6 +669,7 @@
             .sort((a, b) => a.username.localeCompare(b.username));
           channelStatusCache = {};
           renderChannelsTable();
+          updateSummaryStats();
         } catch (err) {
           tbody.innerHTML = `<tr><td colspan="4" class="empty">❌ خطا: ${err.message}</td></tr>`;
         }
@@ -674,17 +751,20 @@
 
       /**
        * بعد از هر آپدیت وضعیت یک کانال (چک یا ترمیم)، کلاس row-complete
-       * را روی خودِ <tr> اعمال/حذف می‌کند.
+       * را روی خودِ <tr> اعمال/حذف می‌کند و خلاصه‌ی آماری بالای صفحه را
+       * دوباره حساب می‌کند.
        */
       function updateRowCompleteClass(channel) {
         const row = document.getElementById(`channel-row-${channel}`);
-        if (!row) return;
-        const statusCache = channelStatusCache[channel];
-        if (statusCache && isChannelComplete(statusCache)) {
-          row.classList.add("row-complete");
-        } else {
-          row.classList.remove("row-complete");
+        if (row) {
+          const statusCache = channelStatusCache[channel];
+          if (statusCache && isChannelComplete(statusCache)) {
+            row.classList.add("row-complete");
+          } else {
+            row.classList.remove("row-complete");
+          }
         }
+        updateSummaryStats();
       }
 
       async function checkStatus(channel) {
@@ -744,6 +824,12 @@
        * شروع ترمیم یک کانال + polling زنده‌ی پیشرفت.
        * silent=true یعنی مودال نتیجه در پایان باز نمی‌شود (برای run-all خودکار).
        * خروجی Promise که وقتی job واقعاً تمام شد resolve می‌شود.
+       *
+       * نکته: بعد از پایان ترمیم، فقط تعداد ذخیره‌شده (total_ads_now) از
+       * سرور به‌روز است؛ برای تعداد پیام متنی امروز، اگر قبلاً «بررسی
+       * وضعیت» زده شده باشد همان مقدار را حفظ می‌کنیم (چون در طول ترمیم
+       * تغییری در تعداد پیام‌های امروز رخ نداده)، وگرنه از total_messages_today
+       * (شامل پیام‌های غیرمتنی هم) به‌عنوان نزدیک‌ترین تخمین استفاده می‌شود.
        */
       function runBackfillWithProgress(channel, silent) {
         return new Promise(async (resolve) => {
@@ -827,9 +913,6 @@
                   const totalAdsNow = safeNum(job.total_ads_now);
                   const totalMessagesToday = safeNum(job.total_messages_today);
                   const addedCount = safeNum(job.added_count);
-
-                  // تعداد پیام متنی امروز را از کش قبلی (اگر بررسی وضعیت شده بود) نگه می‌داریم؛
-                  // اگر نبود، از total_messages_today (که شامل غیرمتنی هم می‌شود) به‌عنوان تخمین استفاده می‌کنیم.
                   const textMessagesToday =
                     channelStatusCache[channel]?.text_messages_today ??
                     totalMessagesToday;
