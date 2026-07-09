@@ -92,8 +92,18 @@ class BackfillChannelIn(BaseModel):
     channel: str
 
 
+class GroupExtractWithRunIdIn(BaseModel):
+    group_link: str
+    run_id: str
+
+
+class RescanGroupIn(BaseModel):
+    group_username: str
+    run_id: str | None = None
+
+
 @app.on_event("startup")
-async def _start_background_tasks():
+async def start_background_tasks():
     import asyncio
     asyncio.create_task(daily_scan_loop())
 
@@ -149,7 +159,6 @@ def ads(
 
 @app.get("/ads-by-channel")
 def ads_by_channel(channel: str = Query(...), hours: int = Query(168, ge=1, le=168)):
-    """همه‌ی آگهی‌های یک کانال خاص — برای عیب‌یابی سریع «چرا پیام‌های این کانال نمی‌آید»."""
     data = get_ads_by_channel(channel=channel, hours=hours)
     return {"channel": channel, "count": len(data), "data": data}
 
@@ -198,10 +207,6 @@ def account_status():
 
 @app.get("/message-counts")
 def message_counts():
-    """
-    آمار پیام‌های دریافتی امروز به تفکیک هر کانال — چه تعداد کل پیام
-    (چه آگهی چه غیرآگهی)، چه تعداد آن‌هایی که واقعاً آگهی بوده‌اند.
-    """
     data = get_message_counts_per_channel()
     return {"channels_count": len(data), "data": data}
 
@@ -254,11 +259,6 @@ def start_extraction_run_endpoint():
     return {"run_id": start_extraction_run()}
 
 
-class GroupExtractWithRunIdIn(BaseModel):
-    group_link: str
-    run_id: str
-
-
 @app.post("/channels/extract-from-group-with-progress")
 async def extract_from_group_with_progress(payload: GroupExtractWithRunIdIn):
     try:
@@ -270,11 +270,6 @@ async def extract_from_group_with_progress(payload: GroupExtractWithRunIdIn):
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"خطای غیرمنتظره: {e}")
-
-
-class RescanGroupIn(BaseModel):
-    group_username: str
-    run_id: str | None = None
 
 
 @app.post("/channels/rescan-group")
@@ -366,7 +361,6 @@ def mark_alert_matches_seen():
 
 @app.get("/backfill/lock-status")
 def backfill_lock_status():
-    """آیا الان یک عملیات ترمیم در حال اجراست — برای غیرفعال‌کردن دکمه‌های دیگر در فرانت."""
     return is_backfill_running()
 
 
@@ -384,11 +378,7 @@ async def backfill_channel_status(channel: str = Query(...)):
 
 
 @app.post("/backfill/start")
-def backfill_start(payload: BackfillChannelIn):
-    """
-    فوراً برمی‌گردد — عملیات واقعی در پس‌زمینه اجرا می‌شود. فرانت باید
-    با job_id برگشتی، /backfill/progress را poll کند.
-    """
+async def backfill_start(payload: BackfillChannelIn):
     try:
         job_id = start_backfill_job(payload.channel)
         return {"job_id": job_id}
