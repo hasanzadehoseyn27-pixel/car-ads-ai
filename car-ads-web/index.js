@@ -660,6 +660,66 @@ fastify.get("/api/car-ads-backfill-all-status", async (req, reply) => {
   }
 });
 
+fastify.get("/api/car-ads-failed-messages", async (req, reply) => {
+  const search = req.query.search;
+  try {
+    let url = `${ANALYTICS_SERVICE_URL}/failed-messages`;
+    if (search) url += `?search=${encodeURIComponent(search)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai پاسخ درستی نداد" };
+    }
+    return await res.json();
+  } catch (err) {
+    reply.code(502);
+    return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+  }
+});
+
+fastify.post("/api/car-ads-failed-messages/:id/retry", async (req, reply) => {
+  try {
+    const res = await fetch(
+      `${ANALYTICS_SERVICE_URL}/failed-messages/${encodeURIComponent(
+        req.params.id
+      )}/retry`,
+      {
+        method: "POST",
+      }
+    );
+    const json = await res.json();
+    if (!res.ok) {
+      reply.code(res.status);
+      return { error: json.detail || "سرویس car-ads-ai پاسخ درستی نداد" };
+    }
+    return json;
+  } catch (err) {
+    reply.code(502);
+    return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+  }
+});
+
+fastify.delete("/api/car-ads-failed-messages/:id", async (req, reply) => {
+  try {
+    const res = await fetch(
+      `${ANALYTICS_SERVICE_URL}/failed-messages/${encodeURIComponent(
+        req.params.id
+      )}`,
+      {
+        method: "DELETE",
+      }
+    );
+    if (!res.ok) {
+      reply.code(502);
+      return { error: "سرویس car-ads-ai پاسخ درستی نداد" };
+    }
+    return await res.json();
+  } catch (err) {
+    reply.code(502);
+    return { error: "سرویس car-ads-ai در دسترس نیست", detail: err.message };
+  }
+});
+
 fastify.listen({ port: 3050, host: "0.0.0.0" }, (err) => {
   if (err) throw err;
   console.log("car-ads-web backend running on http://localhost:3050");

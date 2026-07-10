@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>پیام‌های شکست‌خورده</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0b1320;
+        --card: #141f33;
+        --card-border: #263248;
+        --header-bg: #0f3d3a;
+        --accent: #2dd4bf;
+        --accent-bright: #5eead4;
+        --text: #e7ecf3;
+        --text-dim: #93a1b8;
+        --text-faint: #5c6b85;
+        --danger: #fca5a5;
+        --radius-lg: 14px;
+        --radius-md: 10px;
+        --radius-sm: 7px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        overflow-x: hidden;
+        max-width: 100%;
+      }
+      body {
+        background: var(--bg);
+        background-image: radial-gradient(
+          circle at 15% 0%,
+          rgba(45, 212, 191, 0.07),
+          transparent 45%
+        );
+        color: var(--text);
+        font-family: "Vazirmatn", Tahoma, sans-serif;
+        margin: 0;
+        padding: 28px 32px 60px;
+      }
+      .page-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      h1 {
+        color: var(--accent-bright);
+        font-size: 21px;
+        font-weight: 700;
+        margin: 0;
+      }
+      .back-link {
+        color: var(--text-dim);
+        text-decoration: none;
+        font-size: 13px;
+        padding: 6px 12px;
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-sm);
+      }
+      .back-link:hover {
+        background: #1b2a45;
+        color: var(--text);
+      }
+      .top-hint {
+        color: var(--text-faint);
+        font-size: 12.5px;
+        margin: 6px 0 16px;
+        line-height: 1.8;
+      }
+
+      .summary-stat-wrap {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 18px;
+      }
+      .summary-stat {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 999px;
+        padding: 10px 26px;
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
+          0 8px 24px -12px rgba(0, 0, 0, 0.5);
+        font-size: 13px;
+        color: var(--text-dim);
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .summary-stat .stat-num {
+        color: var(--accent-bright);
+        font-weight: 700;
+        font-size: 15px;
+      }
+      .summary-stat .stat-sep {
+        width: 1px;
+        height: 16px;
+        background: var(--card-border);
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset,
+          0 8px 24px -12px rgba(0, 0, 0, 0.5);
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+        padding: 0 2px;
+      }
+      input[type="text"] {
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-sm);
+        padding: 7px 12px;
+        font-family: inherit;
+        font-size: 13.5px;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      input[type="text"]:focus {
+        border-color: var(--accent);
+      }
+      .toolbar input[type="text"] {
+        min-width: 300px;
+        flex: 1;
+      }
+      button {
+        background: var(--header-bg);
+        color: var(--accent-bright);
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-sm);
+        padding: 7px 14px;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s, transform 0.1s, opacity 0.15s;
+        white-space: nowrap;
+      }
+      button:hover:not(:disabled) {
+        background: #115049;
+      }
+      button:active:not(:disabled) {
+        transform: scale(0.97);
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      button.secondary {
+        background: transparent;
+        color: var(--text-dim);
+        border-color: var(--card-border);
+      }
+      button.secondary:hover:not(:disabled) {
+        background: #1b2a45;
+        color: var(--text);
+      }
+      button.danger-outline {
+        background: transparent;
+        color: var(--danger);
+        border-color: var(--danger);
+      }
+      button.danger-outline:hover:not(:disabled) {
+        background: #3f1d1d;
+      }
+      button.tiny {
+        font-size: 11.5px;
+        padding: 5px 10px;
+      }
+
+      .channel-badges-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--card-border);
+      }
+      .channel-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--bg);
+        border: 1px solid var(--card-border);
+        border-radius: 999px;
+        padding: 5px 12px;
+        font-size: 12px;
+        color: var(--text-dim);
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .channel-badge:hover {
+        background: #1b2a45;
+      }
+      .channel-badge.active {
+        border-color: var(--accent);
+        color: var(--accent-bright);
+      }
+      .channel-badge .cb-count {
+        color: var(--danger);
+        font-weight: 700;
+      }
+
+      .failed-list {
+        padding: 14px 16px;
+      }
+      .empty {
+        color: var(--text-faint);
+        text-align: center;
+        padding: 34px 0;
+        font-size: 13.5px;
+      }
+
+      .failed-card {
+        background: var(--bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-md);
+        padding: 13px 15px;
+        margin-bottom: 10px;
+      }
+      .failed-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .failed-card-meta {
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .failed-card-meta .fc-channel {
+        color: var(--accent-bright);
+        font-weight: 700;
+      }
+      .failure-type-badge {
+        display: inline-block;
+        font-size: 10.5px;
+        font-weight: 700;
+        padding: 2px 9px;
+        border-radius: 999px;
+        margin-inline-end: 6px;
+      }
+      .failure-type-badge.extraction_failed {
+        background: #7c2d12;
+        color: #fdba74;
+      }
+      .failure-type-badge.save_failed {
+        background: #3f1d1d;
+        color: var(--danger);
+      }
+      .failed-card-actions {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .failed-card-text {
+        background: var(--card);
+        border-radius: var(--radius-sm);
+        padding: 9px 11px;
+        font-size: 13px;
+        color: #cbd5e1;
+        white-space: pre-wrap;
+        margin-bottom: 8px;
+        line-height: 1.6;
+      }
+      .failed-card-error {
+        font-size: 11.5px;
+        color: var(--text-faint);
+        font-style: italic;
+        word-break: break-word;
+      }
+      .failed-card-date {
+        color: var(--text-faint);
+        font-size: 11px;
+        text-align: left;
+        margin-top: 6px;
+      }
+      .retry-status {
+        font-size: 12px;
+        margin-inline-start: 8px;
+      }
+      .retry-status.success {
+        color: #6ee7b7;
+      }
+      .retry-status.error {
+        color: var(--danger);
+      }
+      .spinner-inline {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid var(--card-border);
+        border-top-color: var(--accent-bright);
+        animation: spin 0.8s linear infinite;
+        display: inline-block;
+        vertical-align: middle;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding: 16px 12px 40px;
+        }
+        .toolbar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .toolbar input[type="text"] {
+          min-width: 0;
+          width: 100%;
+        }
+        .failed-card-header {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .failed-card-actions {
+          justify-content: flex-end;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-header">
+      <h1>⚠️ پیام‌های شکست‌خورده</h1>
+      <a href="/index.html" class="back-link">← بازگشت به داشبورد</a>
+    </div>
+    <div class="top-hint">
+      این پیام‌ها در حالت زنده (سیستم اصلی) بعد از ۵ بار تلاش پشت‌سرهم — چه در
+      مرحله‌ی استخراج توسط هوش مصنوعی، چه در مرحله‌ی ذخیره‌سازی — باز هم موفق
+      نشدند و برای بررسی اینجا نگه داشته شده‌اند. می‌توانی برای هر پیام دوباره
+      تلاش کنی یا آن را حذف کنی.
+    </div>
+
+    <div class="summary-stat-wrap">
+      <div class="summary-stat">
+        <span
+          >تعداد کل پیام‌های شکست‌خورده:
+          <span class="stat-num" id="sumTotalFailed">۰</span></span
+        >
+        <span class="stat-sep"></span>
+        <span
+          >تعداد کانال‌های درگیر:
+          <span class="stat-num" id="sumChannelCount">۰</span></span
+        >
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="padding: 16px 16px 0">
+        <div class="toolbar">
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="جستجو در متن پیام یا نام کانال..."
+            oninput="onSearchInput()"
+          />
+          <button class="secondary tiny" onclick="loadFailedMessages()">
+            🔄 بارگذاری دوباره
+          </button>
+        </div>
+      </div>
+      <div class="channel-badges-wrap" id="channelBadgesWrap"></div>
+      <div class="failed-list" id="failedList">
+        <div class="empty">در حال بارگذاری...</div>
+      </div>
+    </div>
+
+    <script>
+      const SEARCH_DEBOUNCE_MS = 400;
+
+      let allFailedMessages = [];
+      let channelCounts = [];
+      let activeChannelFilter = null;
+      let searchDebounceTimeout = null;
+
+      function fa(value) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n.toLocaleString("fa-IR") : "۰";
+      }
+
+      function formatDate(iso) {
+        if (!iso) return "—";
+        try {
+          return new Date(iso).toLocaleString("fa-IR");
+        } catch {
+          return iso;
+        }
+      }
+
+      function failureTypeLabel(type) {
+        if (type === "extraction_failed") return "خطای استخراج (هوش مصنوعی)";
+        if (type === "save_failed") return "خطای ذخیره‌سازی (دیتابیس)";
+        return type;
+      }
+
+      async function loadFailedMessages() {
+        const listEl = document.getElementById("failedList");
+        listEl.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
+        try {
+          const searchTerm = document
+            .getElementById("searchInput")
+            .value.trim();
+          let url = "/api/car-ads-failed-messages";
+          if (searchTerm) url += `?search=${encodeURIComponent(searchTerm)}`;
+
+          const res = await fetch(url);
+          const json = await res.json();
+
+          if (json.error) {
+            listEl.innerHTML = `<div class="empty">❌ ${json.error}</div>`;
+            return;
+          }
+
+          allFailedMessages = json.data || [];
+          channelCounts = json.channel_counts || [];
+
+          renderChannelBadges();
+          renderFailedList();
+          updateSummaryStats();
+        } catch (err) {
+          listEl.innerHTML = `<div class="empty">❌ خطا: ${err.message}</div>`;
+        }
+      }
+
+      function updateSummaryStats() {
+        document.getElementById("sumTotalFailed").textContent = fa(
+          allFailedMessages.length
+        );
+        document.getElementById("sumChannelCount").textContent = fa(
+          channelCounts.length
+        );
+      }
+
+      function renderChannelBadges() {
+        const wrap = document.getElementById("channelBadgesWrap");
+        wrap.innerHTML = "";
+
+        if (channelCounts.length === 0) {
+          wrap.style.display = "none";
+          return;
+        }
+        wrap.style.display = "flex";
+
+        const allBadge = document.createElement("div");
+        allBadge.className =
+          "channel-badge" + (activeChannelFilter === null ? " active" : "");
+        allBadge.innerHTML = `همه (<span class="cb-count">${fa(
+          allFailedMessages.length
+        )}</span>)`;
+        allBadge.onclick = () => {
+          activeChannelFilter = null;
+          renderChannelBadges();
+          renderFailedList();
+        };
+        wrap.appendChild(allBadge);
+
+        channelCounts.forEach((c) => {
+          const badge = document.createElement("div");
+          badge.className =
+            "channel-badge" +
+            (activeChannelFilter === c.channel ? " active" : "");
+          badge.innerHTML = `@${c.channel} (<span class="cb-count">${fa(
+            c.failed_count
+          )}</span>)`;
+          badge.onclick = () => {
+            activeChannelFilter = c.channel;
+            renderChannelBadges();
+            renderFailedList();
+          };
+          wrap.appendChild(badge);
+        });
+      }
+
+      function getFilteredMessages() {
+        if (!activeChannelFilter) return allFailedMessages;
+        return allFailedMessages.filter(
+          (m) => m.channel === activeChannelFilter
+        );
+      }
+
+      function renderFailedList() {
+        const listEl = document.getElementById("failedList");
+        const filtered = getFilteredMessages();
+
+        listEl.innerHTML = "";
+
+        if (filtered.length === 0) {
+          listEl.innerHTML =
+            '<div class="empty">هیچ پیام شکست‌خورده‌ای پیدا نشد ✅</div>';
+          return;
+        }
+
+        filtered.forEach((msg) => {
+          const card = document.createElement("div");
+          card.className = "failed-card";
+          card.id = `failed-card-${msg.id}`;
+          card.innerHTML = `
+          <div class="failed-card-header">
+            <div class="failed-card-meta">
+              <span class="failure-type-badge ${
+                msg.failure_type
+              }">${failureTypeLabel(msg.failure_type)}</span>
+              کانال: <span class="fc-channel">@${
+                msg.channel
+              }</span> — message_id: ${msg.message_id} — تلاش‌ها: ${fa(
+            msg.attempts
+          )}
+            </div>
+            <div class="failed-card-actions">
+              <button class="tiny" onclick="retryMessage(${
+                msg.id
+              })">🔁 تلاش دوباره</button>
+              <button class="danger-outline tiny" onclick="deleteMessage(${
+                msg.id
+              })">حذف</button>
+            </div>
+          </div>
+          <div class="failed-card-text">${msg.message_text}</div>
+          <div class="failed-card-error">آخرین خطا: ${
+            msg.last_error || "—"
+          }</div>
+          <div class="failed-card-date">
+            زمان پست: ${formatDate(
+              msg.telegram_date
+            )} — آخرین تلاش: ${formatDate(msg.last_attempt_at)}
+            <span class="retry-status" id="retry-status-${msg.id}"></span>
+          </div>
+        `;
+          listEl.appendChild(card);
+        });
+      }
+
+      async function retryMessage(id) {
+        const statusEl = document.getElementById(`retry-status-${id}`);
+        statusEl.innerHTML =
+          '<span class="spinner-inline"></span> در حال تلاش دوباره...';
+        try {
+          const res = await fetch(`/api/car-ads-failed-messages/${id}/retry`, {
+            method: "POST",
+          });
+          const json = await res.json();
+
+          if (json.error) {
+            statusEl.innerHTML = `<span class="retry-status error">❌ ${json.error}</span>`;
+            return;
+          }
+
+          if (json.status === "ok") {
+            statusEl.innerHTML = `<span class="retry-status success">✅ موفق شد و ذخیره شد (${
+              json.car_name || "—"
+            })</span>`;
+            setTimeout(() => loadFailedMessages(), 1200);
+          } else if (json.status === "not_an_ad") {
+            statusEl.innerHTML = `<span class="retry-status success">ℹ️ آگهی خودرو نبود — از لیست حذف شد</span>`;
+            setTimeout(() => loadFailedMessages(), 1200);
+          } else {
+            statusEl.innerHTML = `<span class="retry-status error">❌ نتیجه‌ی نامشخص</span>`;
+          }
+        } catch (err) {
+          statusEl.innerHTML = `<span class="retry-status error">❌ خطا: ${err.message}</span>`;
+        }
+      }
+
+      async function deleteMessage(id) {
+        if (
+          !confirm(
+            "این پیام از لیست شکست‌خورده‌ها حذف شود؟ (این کار پیام را دوباره پردازش نمی‌کند)"
+          )
+        )
+          return;
+        try {
+          await fetch(`/api/car-ads-failed-messages/${id}`, {
+            method: "DELETE",
+          });
+          await loadFailedMessages();
+        } catch (err) {
+          alert("خطا در حذف: " + err.message);
+        }
+      }
+
+      function onSearchInput() {
+        clearTimeout(searchDebounceTimeout);
+        searchDebounceTimeout = setTimeout(
+          () => loadFailedMessages(),
+          SEARCH_DEBOUNCE_MS
+        );
+      }
+
+      loadFailedMessages();
+    </script>
+  </body>
+</html>

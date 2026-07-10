@@ -10,11 +10,16 @@
 جدول monitored_groups / channel_extraction_log: استخراج خودکار روزانه‌ی کانال از گروه.
 جدول extraction_progress: وضعیت لحظه‌ای یک اجرای در حال انجام استخراج.
 جدول message_log: شمارنده‌ی همه‌ی پیام‌های دریافتی (چه آگهی چه غیرآگهی).
+جدول channel_backfill_status: آخرین وضعیت ذخیره‌شده‌ی هر کانال برای ابزار ترمیم/بک‌فیل.
 
-جدول channel_backfill_status: آخرین وضعیت ذخیره‌شده‌ی هر کانال برای ابزار
-ترمیم/بک‌فیل (backfill.py) — تا با رفرش صفحه‌ی backfill.html، داده‌های
-«بررسی وضعیت» یا نتیجه‌ی آخرین ترمیم از بین نروند و همیشه از دیتابیس
-خوانده شوند (نه فقط از حافظه‌ی مرورگر).
+جدول failed_messages: پیام‌هایی که در حالت زنده (listener.py) بعد از
+تلاش‌های مکرر (پیش‌فرض ۵ بار) هم نتوانستند با موفقیت پردازش/ذخیره شوند —
+چه به‌خاطر خطای واقعی در استخراج (AI) و چه خطای واقعی در ذخیره‌سازی
+(دیتابیس). این جدول جدا از car_ads است: پیام‌هایی که AI درست پردازششان
+کرده ولی is_ad=false تشخیص داده (یعنی واقعاً آگهی خودرو نبودند) اینجا
+ثبت نمی‌شوند — چون آن یک تصمیم درست است، نه یک خطای فنی. فقط خطاهای واقعی
+(Exception) اینجا ثبت می‌شوند تا از داشبورد قابل بررسی و «تلاش دوباره»
+باشند.
 
 نکته‌ی مهم درباره‌ی هم‌زمانی: این فایل هم‌زمان توسط چند پروسه نوشته
 می‌شود؛ همه‌ی اتصال‌ها از تابع _connect() عبور می‌کنند که WAL mode و
@@ -175,6 +180,25 @@ def init_db():
             text_messages_today INTEGER NOT NULL,
             checked_at TEXT NOT NULL
         )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS failed_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel TEXT NOT NULL,
+            message_id INTEGER NOT NULL,
+            message_text TEXT NOT NULL,
+            telegram_date TEXT,
+            failure_type TEXT NOT NULL,
+            last_error TEXT,
+            attempts INTEGER NOT NULL DEFAULT 5,
+            first_failed_at TEXT NOT NULL,
+            last_attempt_at TEXT NOT NULL,
+            UNIQUE(channel, message_id)
+        )
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_failed_messages_channel
+        ON failed_messages(channel)
     """)
 
     existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(car_ads)").fetchall()}
@@ -631,11 +655,6 @@ def count_ads_for_channel_since(channel: str, since_iso: str) -> int:
 
 
 def upsert_channel_backfill_status(channel: str, existing_ads_count: int, total_messages_today: int, text_messages_today: int) -> None:
-    """
-    آخرین وضعیت یک کانال (برای ابزار ترمیم) را ذخیره/به‌روز می‌کند — تا با
-    رفرش صفحه‌ی backfill.html، داده‌ها از بین نروند و همیشه آخرین وضعیت
-    واقعی نمایش داده شود.
-    """
     conn = _connect()
     try:
         conn.execute(
@@ -656,7 +675,6 @@ def upsert_channel_backfill_status(channel: str, existing_ads_count: int, total_
 
 
 def get_all_channel_backfill_statuses() -> list[dict]:
-    """همه‌ی آخرین وضعیت‌های ذخیره‌شده — برای پُرکردن صفحه‌ی backfill.html بدون نیاز به بررسی دستی دوباره."""
     conn = _connect()
     conn.row_factory = sqlite3.Row
     try:
@@ -664,3 +682,106 @@ def get_all_channel_backfill_statuses() -> list[dict]:
     finally:
         conn.close()
     return [dict(row) for row in rows]
+
+
+def add_or_update_failed_message(
+    channel: str,
+    message_id: int,
+    message_text: str,
+    telegram_date: str | None,
+    failure_type: str,
+    last_error: str,
+    attempts: int,
+) -> None:
+    """
+    ثبت یک پیام «شکست‌خورده» — بعد از اتمام تمام تلاش‌های retry بدون
+    موفقیت. اگر همین (channel, message_id) از قبل در جدول باشد (مثلاً
+    یک بار قبلاً شکست خورده و الان دوباره — چه به‌صورت خودکار چه با
+    «تلاش دوباره»ی دستی — باز شکست خورده)، فقط رکورد موجود به‌روز
+    می‌شود، نه یک ردیف تکراری جدید.
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    conn = _connect()
+    try:
+        conn.execute(
+            """
+            INSERT INTO failed_messages (
+                channel, message_id, message_text, telegram_date, failure_type,
+                last_error, attempts, first_failed_at, last_attempt_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(channel, message_id) DO UPDATE SET
+                message_text = excluded.message_text,
+                telegram_date = excluded.telegram_date,
+                failure_type = excluded.failure_type,
+                last_error = excluded.last_error,
+                attempts = excluded.attempts,
+                last_attempt_at = excluded.last_attempt_at
+            """,
+            (channel, message_id, message_text, telegram_date, failure_type, last_error, attempts, now_iso, now_iso),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_failed_messages(search: str | None = None) -> list[dict]:
+    """
+    لیست همه‌ی پیام‌های شکست‌خورده، جدیدترین اول. اگر search داده شود،
+    روی متن پیام و نام کانال فیلتر می‌شود (ساده و case-insensitive).
+    """
+    conn = _connect()
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            "SELECT * FROM failed_messages ORDER BY last_attempt_at DESC"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    result = [dict(row) for row in rows]
+    if search and search.strip():
+        search_lower = search.strip().lower()
+        result = [
+            item for item in result
+            if search_lower in (item.get("message_text") or "").lower()
+            or search_lower in (item.get("channel") or "").lower()
+        ]
+    return result
+
+
+def get_failed_message_counts_per_channel() -> list[dict]:
+    """برای هر کانال، تعداد پیام‌های شکست‌خورده‌اش — برای نمایش خلاصه در داشبورد."""
+    conn = _connect()
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT channel, COUNT(*) AS failed_count
+            FROM failed_messages
+            GROUP BY channel
+            ORDER BY failed_count DESC
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+    return [dict(row) for row in rows]
+
+
+def get_failed_message(failed_id: int) -> dict | None:
+    conn = _connect()
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute("SELECT * FROM failed_messages WHERE id = ?", (failed_id,)).fetchone()
+    finally:
+        conn.close()
+    return dict(row) if row else None
+
+
+def delete_failed_message(failed_id: int) -> None:
+    conn = _connect()
+    try:
+        conn.execute("DELETE FROM failed_messages WHERE id = ?", (failed_id,))
+        conn.commit()
+    finally:
+        conn.close()

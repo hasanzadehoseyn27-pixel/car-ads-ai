@@ -9,17 +9,20 @@ account_status_loop: هر چند دقیقه یک‌بار، تعداد کانا�
 اکانت الان واقعاً عضوشان است را مستقیم از تلگرام می‌خواند و در جدول
 settings ذخیره می‌کند.
 
-نکته‌ی مهم درباره‌ی لاگ‌گیری تشخیصی (raw_events.log): این فایل جدا و
-بسیار ساده، همان اولین لحظه‌ای که Telethon یک NewMessage event دریافت
-می‌کند — قبل از هر فیلتر (is_channel، active_channels، و غیره) — یک خط
-می‌نویسد. هدف این است که مشخص شود آیا رویدادهای گم‌شده اصلاً به سطح
-Telethon/شبکه می‌رسند یا نه؛ اگر پیامی در تلگرام دیده شود ولی حتی در این
-لاگ خام هم ظاهر نشود، یعنی مشکل در لایه‌ی اتصال/شبکه است، نه در منطق
-فیلترکردن کد ما.
+نکته‌ی مهم درباره‌ی retry: هر پیام (چه در مرحله‌ی استخراج توسط AI، چه در
+مرحله‌ی ذخیره‌سازی در دیتابیس) اگر با خطای واقعی (Exception) مواجه شود،
+تا MAX_RETRY_ATTEMPTS بار (پیش‌فرض ۵) دوباره تلاش می‌شود — با فاصله‌ی
+RETRY_DELAY_SECONDS (پیش‌فرض ۳ ثانیه) بین هر تلاش. اگر بعد از همه‌ی
+تلاش‌ها بازهم شکست خورد، پیام در جدول failed_messages ثبت می‌شود تا از
+داشبورد (صفحه‌ی failed-messages.html) قابل بررسی و «تلاش دوباره»ی دستی
+باشد. این با تصمیم درست AI (is_ad=false، یعنی پیام واقعاً آگهی نبوده)
+کاملاً فرق دارد — آن حالت هرگز retry یا ثبت در failed_messages نمی‌شود،
+چون خطای فنی نیست.
 """
 import os
 import sys
 import json
+import time
 import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -41,6 +44,7 @@ from db import (
     set_setting,
     log_received_message,
     clear_message_log,
+    add_or_update_failed_message,
 )
 
 load_dotenv()
@@ -59,6 +63,9 @@ CONNECT_TIMEOUT_SECONDS = 30
 JOIN_TIMEOUT_SECONDS = 20
 CHANNEL_SYNC_INTERVAL_SECONDS = 15
 ACCOUNT_STATUS_INTERVAL_SECONDS = 120
+
+MAX_RETRY_ATTEMPTS = 5
+RETRY_DELAY_SECONDS = 3
 
 ACCOUNT_USERNAME_KEY = "telegram_account_username"
 ACCOUNT_CHANNEL_COUNT_KEY = "telegram_account_channel_count"
@@ -84,39 +91,90 @@ active_channels: set[str] = set()
 
 
 def log_raw_event(channel_name: str, message_id: int, has_text: bool):
-    """
-    ثبت خام و بی‌واسطه‌ی هر event ورودی — قبل از هر فیلتری. اگه پیامی توی
-    تلگرام دیده بشه ولی حتی اینجا هم ثبت نشه، یعنی مشکل کاملاً بیرون از
-    کنترل کد ماست (لایه‌ی شبکه/Telethon)، نه منطق فیلترکردن.
-    """
     try:
         now_iso = datetime.now(TEHRAN_TZ).isoformat()
         with open(RAW_EVENTS_LOG_PATH, "a", encoding="utf-8") as f:
             f.write(f"{now_iso} | channel={channel_name} | message_id={message_id} | has_text={has_text}\n")
     except Exception:
-        pass  # این لاگ تشخیصیه، نباید هیچ‌وقت باعث توقف پردازش اصلی بشه
+        pass
+
+
+def extract_with_retry(text: str, source: str) -> dict | None:
+    """
+    تلاش برای استخراج آگهی از متن پیام — تا MAX_RETRY_ATTEMPTS بار، با
+    فاصله‌ی RETRY_DELAY_SECONDS بین هر تلاش. این تابع sync است و همیشه
+    باید از طریق run_in_executor صدا زده شود (توسط live_handler)، چون
+    time.sleep داخلش هست.
+
+    خروجی: دیکشنری نتیجه‌ی extract_car_ad اگر موفق بود، یا None اگر بعد
+    از همه‌ی تلاش‌ها هم خطا داد (که در این حالت، آخرین خطا هم به‌عنوان
+    آیتم دوم tuple برگردانده می‌شود تا فراخوان بتواند در failed_messages
+    ثبتش کند).
+    """
+    last_error: Exception | None = None
+    for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
+        try:
+            result = extract_car_ad(text)
+            return result, None
+        except Exception as e:
+            last_error = e
+            print(f"⚠️ تلاش {attempt}/{MAX_RETRY_ATTEMPTS} برای استخراج پیام از {source} شکست خورد: {e}")
+            if attempt < MAX_RETRY_ATTEMPTS:
+                time.sleep(RETRY_DELAY_SECONDS)
+
+    return None, last_error
+
+
+def save_ad_with_retry(channel: str, message_id: int, message_text: str, extracted: dict, telegram_date: str | None) -> Exception | None:
+    """
+    تلاش برای ذخیره‌ی آگهی در دیتابیس — تا MAX_RETRY_ATTEMPTS بار. این
+    تابع sync است و باید از طریق run_in_executor صدا زده شود.
+    خروجی: None اگر موفق بود، یا آخرین Exception اگر بعد از همه‌ی
+    تلاش‌ها هم شکست خورد.
+    """
+    last_error: Exception | None = None
+    for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
+        try:
+            save_ad(
+                channel=channel,
+                message_id=message_id,
+                message_text=message_text,
+                extracted=extracted,
+                telegram_date=telegram_date,
+            )
+            return None
+        except Exception as e:
+            last_error = e
+            print(f"⚠️ تلاش {attempt}/{MAX_RETRY_ATTEMPTS} برای ذخیره‌ی آگهی (channel={channel}, message_id={message_id}) شکست خورد: {e}")
+            if attempt < MAX_RETRY_ATTEMPTS:
+                time.sleep(RETRY_DELAY_SECONDS)
+
+    return last_error
 
 
 def process_message(text: str, source: str):
+    """
+    نسخه‌ی retry-دار پردازش پیام. خروجی یک tuple است:
+    (نتیجه‌ی استخراج یا None, آخرین خطا یا None)
+    اگر پیام بدون متن باشد، (None, None) برمی‌گردد — یعنی نه موفقیت نه
+    شکست فنی، صرفاً یک پیام غیرقابل‌پردازش (فقط عکس).
+    """
     if not text or not text.strip():
         print(f"⏭️  پیام بدون متن (احتمالاً فقط عکس) از {source} — رد شد")
-        return None
+        return None, None
 
     print("\n" + "=" * 60)
     print(f"📩 پیام از {source}:\n{text}")
     print("-" * 60)
-    try:
-        result = extract_car_ad(text)
+
+    result, error = extract_with_retry(text, source)
+    if result is not None:
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        return result
-    except Exception as e:
-        print(f"❌ خطا در استخراج: {e}")
-        return None
+    return result, error
 
 
 @client.on(events.NewMessage())
 async def live_handler(event):
-    # ---------- لاگ خام و بی‌واسطه (اولین کاری که با هر event انجام می‌شود) ----------
     try:
         raw_channel_name = None
         if event.chat is not None:
@@ -148,24 +206,49 @@ async def live_handler(event):
     telegram_date = event.message.date.astimezone(TEHRAN_TZ).isoformat()
 
     loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(
+    result, extraction_error = await loop.run_in_executor(
         None, process_message, text, f"🔴 زنده @{channel_name}"
     )
 
+    if extraction_error is not None:
+        # بعد از MAX_RETRY_ATTEMPTS بار تلاش، استخراج بازهم شکست خورد — ثبت در failed_messages
+        try:
+            await loop.run_in_executor(
+                None,
+                add_or_update_failed_message,
+                channel_name, event.message.id, text, telegram_date,
+                "extraction_failed", str(extraction_error), MAX_RETRY_ATTEMPTS,
+            )
+            print(f"❌ پیام (channel={channel_name}, message_id={event.message.id}) بعد از {MAX_RETRY_ATTEMPTS} تلاش در استخراج شکست خورد — در failed_messages ثبت شد")
+        except Exception as e:
+            print(f"⚠️ حتی ثبت در failed_messages هم شکست خورد: {e}")
+        return
+
     if result is not None:
         try:
-            log_received_message(channel=channel_name, is_ad=bool(result.get("is_ad")))
+            await loop.run_in_executor(None, log_received_message, channel_name, bool(result.get("is_ad")))
         except Exception as e:
             print(f"⚠️ خطا در ثبت شمارنده‌ی پیام: {e}")
 
     if result and result.get("is_ad"):
-        save_ad(
-            channel=channel_name,
-            message_id=event.message.id,
-            message_text=text,
-            extracted=result,
-            telegram_date=telegram_date,
+        save_error = await loop.run_in_executor(
+            None, save_ad_with_retry, channel_name, event.message.id, text, result, telegram_date
         )
+
+        if save_error is not None:
+            # بعد از MAX_RETRY_ATTEMPTS بار تلاش، ذخیره‌سازی بازهم شکست خورد — ثبت در failed_messages
+            try:
+                await loop.run_in_executor(
+                    None,
+                    add_or_update_failed_message,
+                    channel_name, event.message.id, text, telegram_date,
+                    "save_failed", str(save_error), MAX_RETRY_ATTEMPTS,
+                )
+                print(f"❌ پیام (channel={channel_name}, message_id={event.message.id}) بعد از {MAX_RETRY_ATTEMPTS} تلاش در ذخیره‌سازی شکست خورد — در failed_messages ثبت شد")
+            except Exception as e:
+                print(f"⚠️ حتی ثبت در failed_messages هم شکست خورد: {e}")
+            return
+
         print(f"💾 ذخیره شد توی بشکه (channel={channel_name}, message_id={event.message.id})")
 
         try:
@@ -268,7 +351,6 @@ async def midnight_cleanup_loop():
             print("🧹 شمارنده‌ی پیام‌های امروز هم پاک شد.")
         except Exception as e:
             print(f"⚠️ خطا در پاکسازی شمارنده‌ی پیام: {e}")
-        # فایل لاگ خام هم هر شب پاک می‌شود تا حجمش نامحدود رشد نکند
         try:
             if RAW_EVENTS_LOG_PATH.exists():
                 RAW_EVENTS_LOG_PATH.unlink()

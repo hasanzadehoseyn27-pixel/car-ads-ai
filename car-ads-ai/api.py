@@ -41,6 +41,12 @@ from db import (
     list_extraction_progress,
     clear_extraction_progress,
     get_message_counts_per_channel,
+    list_failed_messages,
+    get_failed_message_counts_per_channel,
+    get_failed_message,
+    delete_failed_message,
+    add_or_update_failed_message,
+    save_ad,
 )
 from channel_extractor import extract_channels_from_group, rescan_monitored_group_now, daily_scan_loop
 from backfill import (
@@ -50,6 +56,7 @@ from backfill import (
     is_backfill_running,
     get_all_channel_backfill_statuses,
 )
+from ai_pool.extractor import extract_car_ad
 
 app = FastAPI(title="car-ads-ai analytics API")
 
@@ -64,6 +71,8 @@ DEFAULT_AI_RATE_LIMIT_SECONDS = 10.0
 ACCOUNT_USERNAME_KEY = "telegram_account_username"
 ACCOUNT_CHANNEL_COUNT_KEY = "telegram_account_channel_count"
 ACCOUNT_UPDATED_AT_KEY = "telegram_account_updated_at"
+
+MAX_MANUAL_RETRY_ATTEMPTS = 5
 
 
 class ChannelIn(BaseModel):
@@ -402,5 +411,78 @@ def backfill_progress(job_id: str = Query(...)):
 
 @app.get("/backfill/all-status")
 def backfill_all_status():
-    """آخرین وضعیت ذخیره‌شده‌ی همه‌ی کانال‌ها — برای پُرکردن صفحه بدون نیاز به بررسی دستی دوباره."""
     return {"data": get_all_channel_backfill_statuses()}
+
+
+@app.get("/failed-messages")
+def get_failed_messages(search: str | None = Query(None)):
+    """
+    لیست همه‌ی پیام‌هایی که در حالت زنده، بعد از تلاش‌های مکرر (پیش‌فرض
+    ۵ بار) هم نتوانستند پردازش/ذخیره شوند. پارامتر search اختیاری روی
+    متن پیام و نام کانال فیلتر می‌کند.
+    """
+    data = list_failed_messages(search=search)
+    channel_counts = get_failed_message_counts_per_channel()
+    return {"count": len(data), "data": data, "channel_counts": channel_counts}
+
+
+@app.post("/failed-messages/{failed_id}/retry")
+async def retry_failed_message(failed_id: int):
+    """
+    تلاش دوباره‌ی دستی از داشبورد — متن ذخیره‌شده‌ی پیام را دوباره به AI
+    می‌فرستد (بدون نیاز به session تلگرام، چون متن از قبل در دیتابیس
+    ذخیره است). اگر موفق شد و is_ad=true بود، در car_ads ذخیره و از
+    failed_messages حذف می‌شود. اگر بازهم شکست خورد یا is_ad=false بود
+    (که یعنی واقعاً آگهی نبوده)، رکورد failed_messages به‌روز/حذف
+    می‌شود بر همان اساس.
+    """
+    import asyncio
+
+    failed = get_failed_message(failed_id)
+    if failed is None:
+        raise HTTPException(status_code=404, detail="این پیام شکست‌خورده پیدا نشد")
+
+    channel = failed["channel"]
+    message_id = failed["message_id"]
+    message_text = failed["message_text"]
+    telegram_date = failed["telegram_date"]
+
+    loop = asyncio.get_running_loop()
+    try:
+        result = await loop.run_in_executor(None, extract_car_ad, message_text)
+    except Exception as e:
+        # بازهم شکست خورد — رکورد را با خطای جدید به‌روز می‌کنیم (نه حذف)
+        add_or_update_failed_message(
+            channel, message_id, message_text, telegram_date,
+            "extraction_failed", str(e), MAX_MANUAL_RETRY_ATTEMPTS,
+        )
+        raise HTTPException(status_code=502, detail=f"تلاش دوباره هم شکست خورد: {e}")
+
+    if not result or not result.get("is_ad"):
+        # این‌بار AI تشخیص داد آگهی نیست — یعنی دیگر «شکست فنی» نیست، رکورد را حذف می‌کنیم
+        delete_failed_message(failed_id)
+        return {"status": "not_an_ad", "message": "این پیام آگهی خودرو تشخیص داده نشد — از لیست حذف شد"}
+
+    try:
+        save_ad(
+            channel=channel,
+            message_id=message_id,
+            message_text=message_text,
+            extracted=result,
+            telegram_date=telegram_date,
+        )
+    except Exception as e:
+        add_or_update_failed_message(
+            channel, message_id, message_text, telegram_date,
+            "save_failed", str(e), MAX_MANUAL_RETRY_ATTEMPTS,
+        )
+        raise HTTPException(status_code=502, detail=f"استخراج موفق بود ولی ذخیره‌سازی شکست خورد: {e}")
+
+    delete_failed_message(failed_id)
+    return {"status": "ok", "car_name": result.get("car_name"), "price_amount": result.get("price_amount")}
+
+
+@app.delete("/failed-messages/{failed_id}")
+def delete_failed_message_endpoint(failed_id: int):
+    delete_failed_message(failed_id)
+    return {"status": "ok", "id": failed_id}
