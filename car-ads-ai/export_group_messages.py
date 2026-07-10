@@ -34,7 +34,7 @@ PROXY_PORT = int(os.getenv("PROXY_PORT", "10808"))
 PROXY_CONFIG = (python_socks.ProxyType.SOCKS5, PROXY_HOST, PROXY_PORT) if USE_PROXY else None
 
 SESSION_NAME = "backfill_session"  # از session ای که از قبل لاگین شده استفاده می‌کنیم
-MAX_MESSAGES_TO_SCAN = 20000  # سقف ایمنی برای گروه‌های بسیار پرترافیک
+MAX_MESSAGES_TO_SCAN = 200000  # سقف ایمنی برای گروه‌های بسیار پرترافیک
 
 
 def _extract_group_username(raw: str) -> str:
